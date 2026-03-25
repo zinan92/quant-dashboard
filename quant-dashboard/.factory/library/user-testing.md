@@ -2,73 +2,60 @@
 
 ## Environment Setup
 
-- **Server**: FastAPI on port 8020
-- **Start command**: `cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8020`
-- **Healthcheck**: `curl -sf http://localhost:8020/api/v1/ping` → `{"status":"pong"}`
-- **Credentials**: admin/admin (HTTP Basic Auth for login, Bearer JWT for subsequent requests)
-
-## API Testing
-
-- **Login**: `curl -X POST http://localhost:8020/api/v1/token/login -u admin:admin`
-- **Authenticated requests**: Use `Authorization: Bearer <access_token>` header
+- **Server**: Streamlit on port 8020
+- **Start command**: `cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m streamlit run streamlit_app.py --server.port 8020 --server.headless true`
+- **Healthcheck**: `curl -sf http://localhost:8020/_stcore/health` → `ok`
+- **No authentication required**: Streamlit app is open to any visitor
 
 ## CSI 300 Data
 
-- CSI 300 data is fetched via AkShare on server startup (seed_csi300.py / startup event)
+- CSI 300 data is fetched via AkShare when the IndexFetcher is called
 - Stored in `data/index_cache.db`
-- Available via pair_candles endpoint with symbol `000300.SH`
+- Available automatically in the Streamlit app when benchmarks are rendered
 
 ## Validation Concurrency
 
-### Surface: API (curl)
-- Max concurrent validators: 3
-- Each validator can safely test different endpoints concurrently
-- No shared mutable state between API read endpoints
-
-## Flow Validator Guidance: API
-
-### Isolation rules
-- All validators can share the same server instance on port 8020
-- Each validator should use its own JWT token (login separately)
-- Read-only endpoints don't interfere with each other
-- Backtest endpoints may conflict if multiple validators start backtests simultaneously — serialize backtest tests
-
-### Testing approach
-- Use `curl` for all API assertions
-- Always check HTTP status code AND response body
-- For CSI 300 data: check pair_candles endpoint with pair=000300.SH&timeframe=1d
-
-## Validation Concurrency: Browser
+### Surface: Browser (Streamlit)
 - Max concurrent validators: 1
-- Browser tests share a single FreqUI instance and backend
-- Running multiple browser validators simultaneously could cause race conditions with backtest state
+- Streamlit uses session state per browser tab, but the backtest engine runs in a thread
+- Running multiple validators simultaneously could cause race conditions with shared resources
+- Serialize all browser-based tests
 
-## Flow Validator Guidance: Browser (FreqUI)
+## Flow Validator Guidance: Browser (Streamlit)
 
 ### Isolation rules
-- Only one browser validator at a time (FreqUI is a single-page app with global state)
-- The backend has a singleton backtest engine — only one backtest runs at a time
-- Validators must wait for any running backtest to complete before starting a new one
+- Only one browser validator at a time
+- Each test session uses Streamlit's session state isolated per tab, but underlying data is shared
+- The backtest can take a long time — wait for it to complete before asserting on results
 
 ### Testing approach
 - Use `agent-browser` skill for all browser-based assertions
 - **URL**: http://localhost:8020
-- **Login flow**: Enter server URL as http://localhost:8020, username: admin, password: admin
-- **Backtest flow**: After login, navigate to Backtest view, select chan_theory strategy, run backtest, wait for completion
-- **Performance metrics (VAL-UI-007)**: After backtest completes, look for summary metrics table showing win rate, profit factor, Sharpe, max drawdown. These should be visible in the backtest results panel.
-- **Benchmark comparison (VAL-BENCH-002)**: After backtest, FreqUI may show market_change data if the endpoint responds correctly. The market change endpoint is at `/api/v1/backtest/history/{filename}/market_change`.
-- **Console errors (VAL-CROSS-003)**: After navigating through the UI, check browser console for JavaScript TypeErrors and other errors. Some warnings are acceptable; focus on errors that break functionality.
+- **No login required**: The Streamlit app loads directly without authentication
+- **Backtest flow**:
+  1. Navigate to http://localhost:8020
+  2. The sidebar has: Strategy dropdown (should show "chan_theory"), date range pickers, initial capital, "Run Backtest" button
+  3. Click "Run Backtest" button — a progress bar appears
+  4. Wait for backtest to complete (may take 10-30 seconds)
+  5. Results appear below with: Performance Summary, NAV chart, Drawdown chart, Trade List, etc.
+
+### Key UI elements to verify
+- **Strategy dropdown (VAL-UI-003)**: In the sidebar, the Strategy selectbox should list "chan_theory"
+- **Controls (VAL-UI-001)**: Sidebar has Strategy selector, Start Date, End Date, Initial Capital, "Run Backtest" button
+- **Progress (VAL-UI-004)**: After clicking "Run Backtest", a progress bar or spinner appears
+- **Performance metrics (VAL-UI-007)**: After completion, the "Performance Summary" section shows 6 metric cards:
+  - Total Return
+  - Sortino Ratio  ← IMPORTANT: This was previously CAGR, now fixed to Sortino
+  - Sharpe Ratio
+  - Max Drawdown
+  - Win Rate
+  - Trade Count
+- **NAV chart (VAL-UI-005)**: Interactive Plotly chart showing strategy equity curve
+- **Benchmarks (VAL-BENCH-001, VAL-BENCH-002)**: On the NAV chart, CSI 300 and ChiNext lines with different colors/styles
+- **Trade list (VAL-UI-006)**: Table showing Stock, Entry Date, Exit Date, Entry Price, Exit Price, P&L, P&L%, Hold Days
+- **End-to-end (VAL-CROSS-001)**: Complete flow from selection through results with all metrics + charts + trades
+- **Accessibility (VAL-CROSS-002)**: App loads in any browser without installation
 
 ### Known issues from previous rounds
-- Round 1: Timestamp RangeError and .split errors — these were fixed by changing timestamp format
-- Round 2: Missing strategy_comparison, exit_reason_summary fields, trade missing stake_amount/leverage — these have been fixed in the backend
-- Current state: Backend returns all required fields. Need to verify FreqUI now renders them correctly.
-
-### FreqUI login specifics
-- FreqUI login page has:
-  - Server URL field (may be prefilled or need http://localhost:8020)
-  - Username field
-  - Password field
-  - Login button
-- After successful login, FreqUI connects and shows the dashboard
-- Navigate to "Backtest" tab/panel to run backtests
+- Round 1 (streamlit-pivot): VAL-UI-007 FAILED because "Sortino Ratio" was displayed as "CAGR". This has been fixed in commit 017652f — the CAGR metric card was replaced with Sortino Ratio.
+- VAL-CROSS-001 FAILED because Sortino was missing (transitive dependency on VAL-UI-007). Now that Sortino is added, this should pass.
