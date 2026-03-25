@@ -1,0 +1,71 @@
+{
+  "milestone": "streamlit-pivot",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x",
+      "exitCode": 0,
+      "detail": "133 passed in 1.30s"
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd quant-dashboard && python3 -m ruff check src/",
+      "exitCode": 0,
+      "detail": "All checks passed!"
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd quant-dashboard && python3 -m mypy src/ --ignore-missing-imports",
+      "exitCode": 0,
+      "detail": "Success: no issues found in 12 source files"
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated architecture.md to reflect Streamlit pivot — replaced FreqUI+FastAPI diagram and project structure with current Streamlit direct-import architecture",
+      "sourceFeature": "streamlit-dashboard"
+    },
+    {
+      "target": "library",
+      "description": "Marked frequi-compat.md as DEPRECATED since FreqUI/FastAPI layer was removed in streamlit-pivot milestone",
+      "sourceFeature": "cleanup-freqtrade-layer"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Remove or update stale FastAPI conventions in the Coding Conventions section. Lines referencing 'FastAPI for the REST API', 'API responses use plain dicts for FreqTrade schema compatibility', 'All API endpoints under /api/v1/ prefix', 'All timestamps in millisecond epoch in API responses', and 'Profit ratios as decimals... _pct fields as percentages' are all obsolete after the Streamlit pivot. The 'Frontend: Streamlit' section is correct and should be the primary reference.",
+      "evidence": "Both reviewers (cleanup-freqtrade-layer and streamlit-dashboard) flagged AGENTS.md as containing inconsistent guidance — old FastAPI conventions coexist with the new Streamlit section.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update backend-worker skill to remove FastAPI-specific workflows: step 5 references 'python3 -m uvicorn app.main:app --port 8020' which no longer exists. Replace with Streamlit verification: 'streamlit run streamlit_app.py --server.port 8020'. Also update steps 4-7 that reference curl testing, 404-not-500 rules, and FreqTrade schema compatibility.",
+      "evidence": "Both reviewers noted the skill references the old FastAPI setup. The streamlit-dashboard worker explicitly deviated from skill step 5 because uvicorn no longer applies.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Clarify in backend-worker skill whether pure UI/Streamlit files require unit tests. Current step 3 says 'For every piece of functionality: Write pytest tests alongside implementation.' The streamlit-dashboard worker added zero tests for the 525-line streamlit_app.py, reasoning it's a UI layer. The skill should either exempt UI-only files or require import/smoke tests.",
+      "evidence": "streamlit-dashboard reviewer: 'The worker added zero tests for streamlit_app.py... The skill doesn't have an exception for UI-only files.'",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "services.yaml has already been updated to reflect the Streamlit pivot",
+      "reason": "No action needed — already correct. The cleanup-freqtrade-layer reviewer confirmed services.yaml is consistent."
+    }
+  ],
+  "previousRound": null
+}

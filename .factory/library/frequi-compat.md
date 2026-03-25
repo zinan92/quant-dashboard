@@ -1,6 +1,8 @@
-# FreqUI Compatibility Notes
+# FreqUI Compatibility Notes [DEPRECATED]
 
-**What belongs here:** Discovered compatibility requirements between our FastAPI backend and FreqUI.
+**Status:** DEPRECATED — The project pivoted from FreqUI+FastAPI to Streamlit in the `streamlit-pivot` milestone. This file is retained for historical reference only. None of the information below applies to the current architecture.
+
+**What belonged here:** Discovered compatibility requirements between the former FastAPI backend and FreqUI (no longer used).
 
 ---
 

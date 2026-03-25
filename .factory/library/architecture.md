@@ -4,51 +4,45 @@
 
 ---
 
-## System Architecture
+## System Architecture (Post-Streamlit Pivot)
 
 ```
-┌──────────────────────────┐
-│  FreqUI (Vue.js SPA)     │  ← Open source, unmodified, served as static files
-│  Static build in         │
-│  frontend/dist/          │
-└──────────┬───────────────┘
-           │ REST API /api/v1/*
+┌────────────────────────────────────────┐
+│  Streamlit App (streamlit_app.py)      │  ← Single-file dashboard on :8020
+│  ├── Sidebar: Strategy selector,       │
+│  │   date range, capital, Run button   │
+│  ├── Performance cards (6 metrics)     │
+│  ├── NAV chart + benchmark overlays    │
+│  ├── Drawdown chart                    │
+│  ├── Trade list table                  │
+│  ├── Monthly returns heatmap           │
+│  └── Per-stock performance bar chart   │
+└──────────┬─────────────────────────────┘
+           │ Direct Python imports (no REST API)
 ┌──────────▼───────────────┐
-│  FastAPI Backend (:8020)  │  ← Our code
-│  ├── Auth (JWT)          │
-│  ├── FreqTrade API shim  │  ← Translates our data to FreqTrade response format
+│  Backend Modules          │
 │  ├── Strategy Engine     │  ← Chan Theory quantitative implementation
 │  ├── Backtest Engine     │  ← Signal → Trade → NAV calculation
-│  └── Data Layer          │  ← Reads ashare market.db + local backtest.db
+│  └── Data Layer          │  ← Reads ashare market.db + local index_cache.db
 └──────────┬───────────────┘
            │ SQLite (read-only)        │ SQLite (read-write)
 ┌──────────▼────────┐    ┌────────────▼────────┐
 │  ashare market.db  │    │  data/backtest.db    │
-│  (422 stocks +     │    │  (backtest results,  │
-│   5 indices)       │    │   trades, NAV)       │
-└───────────────────┘    └─────────────────────┘
+│  (422 stocks +     │    │  data/index_cache.db │
+│   5 indices)       │    │  (CSI 300 cache,     │
+└───────────────────┘    │   backtest results)  │
+                          └─────────────────────┘
 ```
 
 ## Project Structure
 
 ```
 quant-dashboard/
-├── app/
-│   ├── main.py              # FastAPI app, SPA fallback, CORS
-│   ├── auth.py              # JWT auth (login, refresh, dependency)
-│   ├── api/                 # FreqTrade-compatible API endpoints
-│   │   ├── system.py        # ping, version, show_config, sysinfo
-│   │   ├── profit.py        # profit, daily, weekly, monthly
-│   │   ├── trades.py        # trades, status, performance
-│   │   ├── strategy.py      # strategies, strategy/{name}
-│   │   ├── backtest.py      # backtest start/poll/history
-│   │   ├── pairs.py         # whitelist, blacklist, available_pairs, pair_candles
-│   │   └── compat.py        # catch-all for unimplemented endpoints (return 404 JSON)
-│   └── schemas.py           # Pydantic models matching FreqTrade schemas
+├── streamlit_app.py         # Streamlit dashboard (main entry point)
 ├── src/
 │   ├── data_layer/
 │   │   ├── market_reader.py # Read-only access to ashare market.db
-│   │   └── index_fetcher.py # AkShare CSI 300 supplementation
+│   │   └── index_fetcher.py # AkShare CSI 300 supplementation → index_cache.db
 │   ├── strategy/
 │   │   ├── chan_theory.py    # Mechanical Chan Theory implementation
 │   │   └── base.py          # Strategy base class
@@ -58,19 +52,21 @@ quant-dashboard/
 │       └── metrics.py       # Performance metrics (Sharpe, Sortino, etc.)
 ├── strategies/
 │   └── chan_theory.yaml      # Copy of strategy definition
-├── frontend/                 # FreqUI source (cloned)
-│   └── dist/                 # Built static files
 ├── data/
-│   └── backtest.db           # Backtest results storage
+│   ├── backtest.db           # Backtest results storage
+│   └── index_cache.db        # Cached CSI 300 index data
 ├── tests/
+│   ├── test_data_layer.py
+│   ├── test_chan_theory.py
+│   └── test_backtest.py
 ├── requirements.txt
 └── pyproject.toml
 ```
 
 ## Key Design Decisions
 
-1. **FreqTrade API compatibility**: We implement the exact same REST API schema that FreqUI expects, so we can use FreqUI without modification.
-2. **Read-only market.db**: We never write to ashare's database. Our own data goes in `data/backtest.db`.
-3. **SPA fallback**: FastAPI serves API routes first, then falls back to `frontend/dist/index.html` for all other routes (SPA deep linking).
-4. **404 not 500 for unimplemented endpoints**: Critical — FreqUI interprets HTTP 500 as "bot offline".
-5. **Webserver mode**: `show_config` returns `runmode: "webserver"` which tells FreqUI to enable backtest features and disable live trading features.
+1. **Streamlit direct imports**: The Streamlit app imports Python modules directly — no REST API layer. This simplifies the architecture and eliminates serialization overhead.
+2. **Read-only market.db**: We never write to ashare's database. Our own data goes in `data/backtest.db` and `data/index_cache.db`.
+3. **Plotly for charts**: All interactive charts (NAV, drawdown, heatmap, bar) use `plotly.graph_objects` via `st.plotly_chart()`.
+4. **Benchmark overlays**: CSI 300 from `index_cache.db` (fetched via AkShare) and ChiNext from `market.db`, both normalized to the same starting point on the NAV chart.
+5. **Threading for backtest**: Backtest runs in a background thread so Streamlit can show progress indicators during execution.

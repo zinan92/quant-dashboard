@@ -1,0 +1,31 @@
+{
+  "featureId": "cleanup-freqtrade-layer",
+  "reviewedAt": "2026-03-25T08:15:00.000Z",
+  "commitId": "a1b7b8b08e7b6fef4e7d11273e079f899deef517",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean, thorough deletion of the entire FreqTrade API compatibility layer and FreqUI frontend. All specified files and directories were removed. The requirements.txt was correctly updated: fastapi, uvicorn, pyjwt, psutil removed; streamlit, quantstats, plotly added. The worker also removed httpx (FastAPI test client) which was not explicitly listed but is correct since no remaining code references it. All 133 core tests (test_backtest, test_chan_theory, test_data_layer) pass. The preserved directories (src/data_layer/, src/strategy/, src/backtest/, data/, strategies/) are intact. 272 files changed with 45,720 lines deleted and only 3 lines added — a clean removal with no residual references.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill still references FastAPI-specific workflows (starting uvicorn, curl testing against running server, 404-not-500 rules, API timestamp conventions, FreqTrade schema compatibility). Since the project has pivoted to Streamlit, these instructions are now obsolete and could mislead future workers. The worker's skillFeedback correctly noted this: manual server verification via curl is not applicable for a cleanup/deletion feature.",
+      "evidence": "SKILL.md steps 4-7 reference FastAPI, uvicorn, curl, FreqTrade schemas. Worker skillFeedback.suggestedChanges notes: 'Consider adding guidance for cleanup/deletion features that skip manual server verification.'"
+    },
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md still contains several conventions that are now obsolete after the Streamlit pivot: 'FastAPI for the REST API', 'All API endpoints under /api/v1/ prefix', 'All timestamps in millisecond epoch in API responses', 'Profit ratios as decimals... _pct fields as percentages'. However, AGENTS.md has been partially updated with the Streamlit section, creating an inconsistent document that references both FastAPI and Streamlit.",
+      "evidence": "AGENTS.md Coding Conventions section lists FastAPI rules alongside the new 'Frontend: Streamlit' section. The mission.md still describes the original FreqTrade-compatible architecture."
+    },
+    {
+      "area": "services",
+      "observation": "services.yaml has already been updated to reflect the Streamlit pivot (streamlit command on port 8020), which is consistent with the cleanup. No gap here.",
+      "evidence": "services.yaml shows 'streamlit run streamlit_app.py --server.port 8020' as the start command."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The cleanup-freqtrade-layer feature was implemented correctly and completely. All specified deletions (app/ directory, frontend/ directory, 9 FreqTrade test files, seed_mock_csi300.py) were performed. The requirements.txt was properly updated to remove FreqTrade dependencies and add Streamlit ecosystem packages. All 133 core tests pass. The only minor note is httpx was also removed (not in the spec) but this is correct since it was only used by deleted FastAPI tests. No code issues found."
+}
