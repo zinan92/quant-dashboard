@@ -1,0 +1,38 @@
+{
+  "featureId": "misc-lint-typecheck-cleanup",
+  "reviewedAt": "2026-03-25T04:25:00.000Z",
+  "commitId": "e9f4414",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "All 4 F841 unused variable warnings and 2 mypy type errors were correctly fixed with minimal, surgical changes. The diff touches only 4 files with 2 insertions and 9 deletions — purely cleanup with no behavioral changes. Each fix is correct: (1) backtest.py removed unused `nav_data` assignment — confirmed no downstream references; (2) pairs.py removed unused `strategy_file` variable and its now-unnecessary `Path` import; (3) trades.py removed unused `fee_open` and `fee_close` computed values — the output dict correctly uses `fee_rate` directly, not these removed variables; (4) profit.py replaced `pair_profits.get` (method reference with incompatible signature) with `lambda x: pair_profits[x]` which correctly satisfies mypy's key callable type; (5) backtest.py added `int()` cast on `run[\"id\"]` matching the declared `int | None` return type. Worker ran ruff, mypy, and all 288 tests after changes. No issues found.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/api/trades.py",
+        "line": 101,
+        "severity": "non_blocking",
+        "description": "After removing fee_open and fee_close, the variables `stake_amount` and `fee_rate` are still used in the output dict below (lines 125-126), so their retention is correct. However, the comment '# Calculate fees (0.03% commission on each side)' at line 100 is now slightly misleading since the fee calculation variables were removed — the comment could be updated to reflect that only the rate constant is retained. Very minor."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The feature description mentions 4 F841 warnings but the worker also fixed an F401 unused import (Path in pairs.py) that wasn't in the original description. This is fine — it was a cascading cleanup from removing the variable that used Path. The handoff correctly documents 5 fixes total (4 F841 + 1 F401). No convention gap, just noting the scope was slightly broader than described.",
+      "evidence": "Diff shows `from pathlib import Path` removed from pairs.py, handoff notes 'Removed unused variable strategy_file and unused import Path in app/api/pairs.py:224'."
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the skill procedure. The skill says to 'write comprehensive tests' but this lint/typecheck cleanup feature doesn't warrant new tests — the worker correctly relied on existing 288 tests passing. The skill's test-writing requirement could note that pure refactoring/cleanup tasks are exempt from new test requirements.",
+      "evidence": "Handoff skillFeedback.followedProcedure=true, no deviations. Tests section notes 'No new tests added' which is appropriate for this type of change."
+    },
+    {
+      "area": "skills",
+      "observation": "Worker skipped step 5 (manual verification with curl) from the backend-worker skill, which is reasonable for a lint/typecheck cleanup that doesn't change runtime behavior. The skill procedure doesn't have an exception for non-behavioral changes.",
+      "evidence": "Transcript skeleton shows no curl commands or server startup. All verification was via ruff, mypy, and pytest."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Clean pass. All 6 lint/type issues (4 F841 unused variables, 1 F401 unused import, 2 mypy errors) were fixed correctly with minimal, surgical edits across 4 files. No behavioral changes, no regressions. All verification tools (ruff, mypy, pytest 288 tests) confirmed clean. One very minor non-blocking observation: a comment in trades.py is slightly stale after the variable removal."
+}
