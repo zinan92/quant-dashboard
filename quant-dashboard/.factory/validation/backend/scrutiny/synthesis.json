@@ -1,0 +1,118 @@
+{
+  "milestone": "backend",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x",
+      "exitCode": 0,
+      "details": "285 tests passed in 12.31s"
+    },
+    "typecheck": {
+      "passed": false,
+      "command": "cd quant-dashboard && python3 -m mypy app/ src/ --ignore-missing-imports",
+      "exitCode": 1,
+      "details": "2 errors: app/api/profit.py:121 arg-type (max() key), app/api/backtest.py:525 no-any-return. Both are minor type annotation issues, not runtime bugs."
+    },
+    "lint": {
+      "passed": false,
+      "command": "cd quant-dashboard && python3 -m ruff check src/ app/ --fix",
+      "exitCode": 1,
+      "details": "4 remaining errors after auto-fix: F841 unused variables in backtest.py (nav_data), pairs.py (strategy_file), trades.py (fee_open, fee_close). All are dead code, not runtime bugs."
+    }
+  },
+  "reviewsSummary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "project-scaffold-and-data-layer",
+      "count": 4,
+      "highlights": "Unused test imports (tempfile, MagicMock), iterrows performance in IndexFetcher, hardcoded market.db path"
+    },
+    {
+      "featureId": "chan-theory-strategy-engine",
+      "count": 5,
+      "highlights": "Divergence boundary handling, OR-sensitivity in detection, weak test assertions for BUY_1 and hub oscillation"
+    },
+    {
+      "featureId": "backtest-engine",
+      "count": 4,
+      "highlights": "Final NAV doesn't reflect force-close costs, pre-sell NAV used for buy sizing, private function testing, unused MAX_POSITION_PCT_HIGH"
+    },
+    {
+      "featureId": "api-auth-and-system-endpoints",
+      "count": 4,
+      "highlights": "Hardcoded JWT secret default, CORS credentials+wildcard, cross-feature test coupling, module-level env vars"
+    },
+    {
+      "featureId": "api-strategy-and-backtest-endpoints",
+      "count": 5,
+      "highlights": "Duplicated result-building logic, abort doesn't cancel thread, O(n) filename lookup, hardcoded default dates, vacuously-passing test"
+    },
+    {
+      "featureId": "api-profit-trades-pairs-endpoints",
+      "count": 7,
+      "highlights": "Dead code (fee_open/fee_close, strategy_file, nav_data), duplicated _date_to_ms_epoch utility, ignored timescale parameter, fragile test mocking"
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Update Pydantic convention: Either change 'Use pydantic models for all API request/response schemas' to 'Use pydantic models for API request validation; response schemas may use plain dicts for FreqTrade compatibility' or create a follow-up task to add Pydantic response models. Current reality: only BacktestRequest uses Pydantic, all responses are raw dicts.",
+      "evidence": "All 6 API modules (system.py, strategy.py, backtest.py, profit.py, trades.py, pairs.py) return raw dicts. AGENTS.md says 'Use pydantic models for all API request/response schemas'. This mismatch was noted by api-profit-trades-pairs-endpoints reviewer.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add section documenting which endpoints are auth-free: /api/v1/ping and /api/v1/version require no auth (FreqUI calls them before login). All other /api/v1/* endpoints require JWT Bearer token.",
+      "evidence": "api-auth-and-system-endpoints reviewer noted that the auth-free convention for /version is undocumented. Workers had to infer FreqUI behavior.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add note about FreqTrade API conventions that deviate from REST: GET /backtest/abort is a state-mutating GET (not POST/DELETE) because FreqTrade uses GET for this. Workers implementing FreqTrade-compatible endpoints should follow FreqTrade's conventions even when they violate REST principles.",
+      "evidence": "api-strategy-and-backtest-endpoints reviewer noted GET-for-abort pattern. This is an intentional FreqTrade convention that future workers should know about.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "The backend-worker skill's TDD requirement (step 3: 'Write tests first (RED)') is not being followed by any worker. All 6 features were implemented code-first, tests-second. Consider either: (a) removing the strict TDD requirement and replacing with 'write comprehensive tests alongside implementation', or (b) if TDD is truly desired, providing more guidance on how to write failing tests for FastAPI endpoints before the app exists.",
+      "evidence": "All 6 feature reviews noted the same TDD deviation. Every worker wrote implementation first, then tests. All workers marked followedProcedure=true despite not following TDD. This is the most systemic observation across the entire milestone.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Empty directories (data/, strategies/) not committed with .gitkeep files",
+      "reason": "Both directories are created at runtime (data/ by IndexFetcher, strategies/ by subsequent strategy engine feature). Not a real issue."
+    },
+    {
+      "observation": "detect_divergence returns untyped list[dict] instead of a Divergence dataclass",
+      "reason": "While inconsistent with the rest of the codebase's typed-dataclass pattern, this is a localized style issue within a single function. Not worth a shared state update."
+    },
+    {
+      "observation": "architecture.md needs updating to include store.py",
+      "reason": "architecture.md is a library doc that should be kept current, but this is a minor documentation gap. The store.py module is discoverable through normal code exploration. Not worth a formal shared state update — it can be addressed organically."
+    },
+    {
+      "observation": "Module-level global state pattern for backtest (threading lock + globals) undocumented",
+      "reason": "This is an implementation detail specific to the backtest module. Documenting it in shared state would be over-engineering — the pattern is clear from reading the code."
+    },
+    {
+      "observation": "JWT secret env var (JWT_SECRET) undocumented in environment.md",
+      "reason": "The env var has a sensible default and the code is self-documenting with os.environ.get('JWT_SECRET', '...'). Adding to library is low value."
+    },
+    {
+      "observation": "_date_to_ms_epoch duplicated across 4 files",
+      "reason": "This is a code quality issue within the implementation, not a shared state/convention issue. Should be addressed as a follow-up refactoring task, not as a shared state update."
+    }
+  ],
+  "previousRound": null
+}

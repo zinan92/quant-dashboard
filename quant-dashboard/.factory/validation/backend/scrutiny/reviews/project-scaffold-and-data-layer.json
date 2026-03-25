@@ -1,0 +1,61 @@
+{
+  "featureId": "project-scaffold-and-data-layer",
+  "reviewedAt": "2026-03-25T03:30:00.000Z",
+  "commitId": "9b5022675c6f75349fc01bbe4b73f916cc6886e1",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation that fulfills all feature requirements. MarketReader correctly opens market.db in read-only mode via file: URI with ?mode=ro, provides methods for stock klines, index klines, available pairs (422 stocks), trade calendar, and stock basic info. IndexFetcher properly fetches CSI 300 via AkShare with upsert-based local caching in data/index_cache.db. All 23 tests cover the required behaviors including OHLCV validation, date filtering, read-only enforcement, error handling, and mocked AkShare integration. Code is clean, well-documented with docstrings, and uses proper type hints throughout. A few non-blocking observations noted below.",
+    "issues": [
+      {
+        "file": "quant-dashboard/tests/test_data_layer.py",
+        "line": 6,
+        "severity": "non_blocking",
+        "description": "Unused import: `tempfile` is imported but never used in the test file. Should be removed to keep imports clean."
+      },
+      {
+        "file": "quant-dashboard/tests/test_data_layer.py",
+        "line": 8,
+        "severity": "non_blocking",
+        "description": "Unused import: `MagicMock` is imported from unittest.mock but never used (only `patch` is used). Should be removed."
+      },
+      {
+        "file": "quant-dashboard/src/data_layer/index_fetcher.py",
+        "line": 125,
+        "severity": "non_blocking",
+        "description": "Performance: `df.iterrows()` is used for row-by-row insertion, which is slow for large DataFrames. For CSI 300 daily data (~90 rows) this is fine, but if the fetcher is reused for larger datasets, consider using `executemany` with `df.itertuples()` or `df.to_sql()` for better performance."
+      },
+      {
+        "file": "quant-dashboard/src/data_layer/market_reader.py",
+        "line": 10,
+        "severity": "non_blocking",
+        "description": "Hardcoded absolute path `/Users/wendy/work/trading-co/ashare/data/market.db` as DEFAULT_DB_PATH. This is acceptable for the current single-machine setup and documented in AGENTS.md/library, but could be made configurable via environment variable for portability."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker did not follow TDD (test-first) procedure from the backend-worker skill. The transcript skeleton shows implementation code was created before tests, contradicting the skill's step 3 ('Write tests first (RED)') and step 4 ('Implement (GREEN)'). However, the handoff's skillFeedback.followedProcedure is marked as true. The deviation is minor since all tests pass and coverage is comprehensive, but the skill procedure should either be followed or the feedback should accurately reflect the deviation.",
+      "evidence": "Transcript skeleton shows Create tool calls for market_reader.py and index_fetcher.py before test_data_layer.py. Skill SKILL.md step 3 says 'Write tests first (RED)', step 4 says 'Implement (GREEN)'."
+    },
+    {
+      "area": "conventions",
+      "observation": "Empty directories (data/, strategies/) specified in feature description were not committed with .gitkeep files. Git cannot track empty directories. The data/ directory is created at runtime by IndexFetcher.__init__() via mkdir, but strategies/ has no such runtime creation mechanism in this feature's code.",
+      "evidence": "git show 9b50226 --name-only shows no files under data/ or strategies/. Feature description says 'Set up directory structure (... data/, strategies/)'. IndexFetcher line 23: self._cache_db.parent.mkdir(parents=True, exist_ok=True) creates data/ at runtime."
+    },
+    {
+      "area": "conventions",
+      "observation": "The ruff lint configuration only selects rules ['E', 'F', 'W', 'I'] which misses the unused import of `tempfile` and `MagicMock` in the test file. The F401 (unused import) rule should catch these but may be excluded for test files or the lint was not run on tests/.",
+      "evidence": "pyproject.toml [tool.ruff.lint] select = ['E', 'F', 'W', 'I']. Worker ran 'ruff check src/ --fix' but not 'ruff check tests/' — tests directory was excluded from lint check."
+    },
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill step 5 says to do manual verification by starting the server and using curl. The worker skipped this step since this feature is data-layer only (no API endpoints), which is a reasonable deviation — the step doesn't apply to non-API features. The skill could clarify that manual server verification only applies to API endpoint features.",
+      "evidence": "Transcript shows no uvicorn start or curl commands. Skill step 5: 'For API endpoints: use curl to test against the running server'. Feature is data-layer only, no endpoints."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The project scaffold is correctly set up with pyproject.toml, requirements.txt (all required packages), and the directory structure. MarketReader correctly implements read-only access to ashare's market.db via file: URI with ?mode=ro, providing stock klines, index klines, available pairs (422 stocks), trade calendar, and stock basic info. IndexFetcher properly integrates with AkShare to fetch CSI 300 data and caches it locally with upsert support. All 23 tests are well-written and cover the expected behaviors including edge cases. Non-blocking issues include unused imports in tests, row-by-row insertion performance in IndexFetcher, and lint not being run on the tests directory. The worker deviated from TDD procedure (wrote code before tests) but the end result is solid."
+}

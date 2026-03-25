@@ -1,0 +1,56 @@
+{
+  "featureId": "api-auth-and-system-endpoints",
+  "reviewedAt": "2026-03-25T03:10:00.000Z",
+  "commitId": "fb2d82f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation fully covers all requirements from the feature description: FastAPI app with CORS (app/main.py), JWT authentication with login and refresh (app/auth.py), system endpoints ping/version/show_config (app/api/system.py), and catch-all 404 handler (app/api/compat.py). All 46 tests are comprehensive and well-structured. Code quality is high — proper type hints, docstrings, and clean separation of concerns. The catch-all correctly returns 404 JSON for unmatched paths, never 500. All show_config fields match the spec exactly. Token expiry times are correct (15min access, 30d refresh). HS256 algorithm is used as required. HTTP Basic Auth is correctly used for login. The only notable items are non-blocking observations below.",
+    "issues": [
+      {
+        "file": "app/auth.py",
+        "line": 14,
+        "severity": "non_blocking",
+        "description": "JWT_SECRET has a hardcoded default value 'quant-dashboard-secret-key-change-in-production'. While the feature spec implicitly allows defaults (admin/admin for creds), AGENTS.md says 'Never commit secrets, API keys, or passwords to the repository'. This default is a placeholder not a real secret, so it's acceptable, but worth noting for production deployment."
+      },
+      {
+        "file": "app/main.py",
+        "line": 29,
+        "severity": "non_blocking",
+        "description": "CORS middleware uses allow_credentials=True with allow_origins=['*']. Browsers will ignore Access-Control-Allow-Credentials when origin is wildcard. This is functionally harmless since auth is JWT-based (not cookie-based), but the combination is technically incorrect per CORS spec. For this use case (public dashboard) it works fine."
+      },
+      {
+        "file": "tests/test_system.py",
+        "line": 161,
+        "severity": "non_blocking",
+        "description": "test_nonexistent_never_returns_500 tests paths like /api/v1/profit which will be implemented by other features. When those features are implemented, this test will still pass (accepting 401/403/404), but the assertion 'assert resp.status_code != 500' becomes redundant. Minor — not a bug, just a coupling between features in test expectations."
+      },
+      {
+        "file": "app/auth.py",
+        "line": 12,
+        "severity": "non_blocking",
+        "description": "API_USERNAME and API_PASSWORD are read at module import time via os.environ.get(). This means changing environment variables after the app starts won't take effect. This is standard FastAPI practice and acceptable, but worth noting."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill specifies a TDD red-green procedure (step 3: 'Write tests first, confirm they FAIL'), but the worker created all implementation files first (app/auth.py, app/api/system.py, app/api/compat.py, app/main.py), then test files. The worker reported skillFeedback.followedProcedure=true despite not following TDD order. The end result is correct (tests pass and are comprehensive), so the deviation is non-impactful, but the skill's TDD requirement may be unrealistic for this type of feature where the FastAPI app needs to exist before tests can import it.",
+      "evidence": "Transcript skeleton shows Create tool calls in order: auth.py, system.py, compat.py, main.py, then test_auth.py, test_system.py. Skill step 3 says 'Write pytest tests... confirm they FAIL (red)' before step 4 'Implement (GREEN)'."
+    },
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md does not document the convention that /api/v1/version should be unauthenticated (no auth required). The worker made this design decision based on FreqUI behavior ('FreqUI needs this before login'). This is correct FreqTrade behavior but undocumented in AGENTS.md. Future workers implementing new system endpoints may not know which endpoints should be public vs protected.",
+      "evidence": "app/api/system.py:23 — version() has no get_current_user dependency, compared to show_config() at line 29 which does. AGENTS.md doesn't specify which endpoints require auth."
+    },
+    {
+      "area": "conventions",
+      "observation": "The JWT secret key configuration pattern (env var with fallback default) is established in auth.py but not documented in AGENTS.md or environment.md. Future workers may not know about the JWT_SECRET env var or may choose a different configuration approach.",
+      "evidence": "app/auth.py:14 — JWT_SECRET = os.environ.get('JWT_SECRET', 'quant-dashboard-secret-key-change-in-production'). environment.md lists data sources and packages but not app configuration env vars."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation correctly covers all requirements: FastAPI app with CORS, JWT authentication (login with HTTP Basic Auth, token refresh, HS256, correct expiry times), system endpoints (ping without auth, version without auth, show_config with auth and all required fields), and catch-all 404 handler for unmatched /api/v1/* paths. 46 comprehensive tests cover happy paths, error cases, and edge cases. Code quality is high with proper type hints, docstrings, and clean architecture. Four non-blocking issues noted (hardcoded JWT secret default, CORS credentials+wildcard combination, cross-feature test coupling, module-level env var reading). Three shared state observations regarding TDD procedure deviation, undocumented auth-free endpoints convention, and undocumented JWT config env vars."
+}

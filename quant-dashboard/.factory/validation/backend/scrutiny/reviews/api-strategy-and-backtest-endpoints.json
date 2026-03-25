@@ -1,0 +1,57 @@
+{
+  "featureId": "api-strategy-and-backtest-endpoints",
+  "reviewedAt": "2026-03-25T03:30:00.000Z",
+  "commitId": "082c390",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Solid implementation of FreqTrade-compatible strategy and backtest API endpoints. The code is well-structured with proper threading, auth integration, and comprehensive test coverage (49 tests). The FreqTrade schema is faithfully reproduced with strategy/metadata dicts keyed by strategy name, millisecond timestamps, and all required metrics. A few non-blocking issues around code duplication, abort semantics, and minor schema inconsistency between live and history results.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 353,
+        "severity": "non_blocking",
+        "description": "Duplicate trade-building and strategy-data construction logic between _build_freqtrade_result() (line 129-170) and get_backtest_history_result() (line 353-414). The history endpoint omits fields present in live results: avg_trade_pnl, avg_trade_duration, total_days, final_nav. If FreqUI relies on these fields for historical results, this inconsistency could cause issues. Consider extracting a shared helper or reusing _build_freqtrade_result."
+      },
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 302,
+        "severity": "non_blocking",
+        "description": "Abort endpoint (GET /backtest/abort) does not actually cancel the running background thread — it only resets global state flags. The thread continues running to completion, consuming CPU/memory. The code comment documents this limitation. For a single-user system this is acceptable, but if a user starts a backtest on a large universe and immediately aborts, the thread still processes all data."
+      },
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 430,
+        "severity": "non_blocking",
+        "description": "_extract_run_id_from_filename() falls back to a full table scan (get_all_runs()) when the filename's last segment isn't a plain integer. This is O(n) in the number of stored runs. Currently acceptable for the expected scale, but could be slow if history grows to thousands of runs."
+      },
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 78,
+        "severity": "non_blocking",
+        "description": "_parse_timerange() defaults to hardcoded dates '2025-11-01' and '2026-03-24' when the timerange is empty/invalid. These match the current data range but will become stale as new data is added. Consider deriving defaults from available market data dates."
+      },
+      {
+        "file": "quant-dashboard/tests/test_backtest_api.py",
+        "line": 381,
+        "severity": "non_blocking",
+        "description": "test_trades_have_freqtrade_fields is guarded by 'if len(trades) > 0', so it passes vacuously when no trades are returned. The wider date range (20251115-20260228) mitigates this in practice, but the test doesn't explicitly assert trades are present, weakening this verification."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The backtest endpoint uses GET for the abort action (GET /api/v1/backtest/abort). This is consistent with FreqTrade's API design where abort is also GET, but it violates REST convention where GET should be idempotent/safe. AGENTS.md doesn't mention this FreqTrade convention explicitly. Future workers implementing similar state-changing endpoints should know that FreqTrade sometimes uses GET for mutations.",
+      "evidence": "quant-dashboard/app/api/backtest.py:295 — @router.get('/backtest/abort'). FreqTrade also uses GET for abort: https://www.freqtrade.io/en/stable/rest-api/"
+    },
+    {
+      "area": "conventions",
+      "observation": "The backtest module uses module-level global mutable state (_current_status, _current_engine, etc.) with a threading lock. This is the established pattern for single-user FreqTrade compatibility. AGENTS.md doesn't document this pattern, which could lead future workers to try alternatives (e.g., database-backed state, async tasks).",
+      "evidence": "quant-dashboard/app/api/backtest.py:33-40 — global state variables with _backtest_lock"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The feature passes review. All 8 required endpoints (GET /strategies, GET /strategy/{name}, POST /backtest, GET /backtest, DELETE /backtest, GET /backtest/abort, GET /backtest/history, GET /backtest/history/result) are implemented with proper FreqTrade schema compliance, JWT authentication, and thread-safe background execution. 49 tests cover happy paths, auth requirements, schema validation, and edge cases. Five non-blocking issues identified: duplicated result-building logic, abort not canceling threads, filename-to-ID fallback doing full table scan, hardcoded default dates, and one vacuously-passing test. Worker followed the backend-worker skill procedure faithfully."
+}
