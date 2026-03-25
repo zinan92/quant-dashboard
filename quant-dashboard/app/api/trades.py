@@ -122,6 +122,16 @@ def get_trades(
             "amount": float(t["shares"]),
             "stake_amount": stake_amount,
             "close_profit_abs": t["pnl"],
+            # Additional required fields for FreqUI TradeList.vue
+            "leverage": 1.0,
+            "is_short": False,
+            "trading_mode": "spot",
+            "orders": [],
+            "max_stake_amount": None,
+            "open_order_id": None,
+            "has_open_orders": False,
+            "enter_tag": None,
+            "quote_currency": "CNY",
         })
 
     return {

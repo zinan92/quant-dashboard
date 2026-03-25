@@ -129,6 +129,7 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
     # Build trades array in FreqTrade format
     trades: list[dict[str, Any]] = []
     for t in result.trades:
+        stake_amount = round(t.shares * t.entry_price, 2)
         trades.append({
             "trade_id": t.trade_id,
             "pair": t.symbol,
@@ -139,7 +140,7 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
             "profit_abs": t.pnl,
             "profit_ratio": t.pnl_pct,
             "profit_pct": round(t.pnl_pct * 100, 4),
-            "stake_amount": round(t.shares * t.entry_price, 2),
+            "stake_amount": stake_amount,
             "amount": t.shares,
             "is_open": False,
             "exchange": "ashare",
@@ -150,6 +151,16 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
             "close_timestamp": _date_to_ms_epoch(t.exit_date),
             "exit_reason": t.exit_reason,  # Required by FreqUI
             "sell_reason": t.exit_reason,  # Deprecated field, but some FreqUI versions may check it
+            # Additional required fields for FreqUI TradeList.vue
+            "leverage": 1.0,
+            "is_short": False,
+            "trading_mode": "spot",
+            "orders": [],
+            "max_stake_amount": None,
+            "open_order_id": None,
+            "has_open_orders": False,
+            "enter_tag": None,
+            "quote_currency": "CNY",
         })
 
     # Build exit_reason_summary (aggregate profit/loss by exit reason)
@@ -189,13 +200,127 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
             stats["winrate"] = stats["wins"] / stats["trades"] if stats["trades"] > 0 else 0.0
         exit_reason_summary.append(stats)
 
+    # Build results_per_pair (aggregate statistics by symbol) - MUST be array, FreqUI calls .length on it
+    pair_stats: dict[str, dict[str, Any]] = {}
+    for t in result.trades:
+        pair = t.symbol
+        if pair not in pair_stats:
+            pair_stats[pair] = {
+                "key": pair,
+                "trades": 0,
+                "profit_mean": 0.0,
+                "profit_total": 0.0,
+                "profit_total_abs": 0.0,
+                "wins": 0,
+                "draws": 0,
+                "losses": 0,
+            }
+        stats = pair_stats[pair]
+        stats["trades"] += 1
+        stats["profit_total"] += t.pnl_pct
+        stats["profit_total_abs"] += t.pnl
+        if t.pnl > 0:
+            stats["wins"] += 1
+        elif t.pnl < 0:
+            stats["losses"] += 1
+        else:
+            stats["draws"] += 1
+
+    # Calculate means for each pair
+    results_per_pair = []
+    for pair, stats in pair_stats.items():
+        if stats["trades"] > 0:
+            stats["profit_mean"] = stats["profit_total"] / stats["trades"]
+        results_per_pair.append(stats)
+
+    # Sort by profit descending
+    results_per_pair.sort(key=lambda x: x["profit_total_abs"], reverse=True)
+
+    # Build pairlist - MUST be array, used by BacktestResultChart
+    pairlist = list(pair_stats.keys())
+
+    # Get metrics early so we can use it in all calculations
+    metrics = result.metrics.copy()
+
+    # Best and worst pairs
+    if results_per_pair:
+        best_pair = {"key": results_per_pair[0]["key"], "profit_total": results_per_pair[0]["profit_total"]}
+        worst_pair = {"key": results_per_pair[-1]["key"], "profit_total": results_per_pair[-1]["profit_total"]}
+    else:
+        best_pair = {"key": "", "profit_total": 0.0}
+        worst_pair = {"key": "", "profit_total": 0.0}
+
+    # Strategy comparison - array with one entry (our strategy)
+    total_wins = sum(1 for t in result.trades if t.pnl > 0)
+    total_losses = sum(1 for t in result.trades if t.pnl < 0)
+    total_draws = len(result.trades) - total_wins - total_losses
+    total_profit = sum(t.pnl_pct for t in result.trades)
+    total_profit_abs = sum(t.pnl for t in result.trades)
+    avg_duration = sum((datetime.strptime(t.exit_date, "%Y-%m-%d") - datetime.strptime(t.entry_date, "%Y-%m-%d")).days 
+                      for t in result.trades) / len(result.trades) if result.trades else 0.0
+
+    strategy_comparison = [{
+        "key": strategy_name,
+        "trades": len(result.trades),
+        "profit_mean": total_profit / len(result.trades) if result.trades else 0.0,
+        "profit_total_abs": total_profit_abs,
+        "profit_total_pct": total_profit * 100,
+        "duration_avg": avg_duration,
+        "wins": total_wins,
+        "draws": total_draws,
+        "losses": total_losses,
+        "max_drawdown_account": metrics.get("max_drawdown", 0.0),
+    }]
+
+    # Calculate daily statistics
+    # Group trades by date to calculate winning/losing days
+    daily_pnl: dict[str, float] = {}
+    for t in result.trades:
+        exit_date = t.exit_date
+        if exit_date not in daily_pnl:
+            daily_pnl[exit_date] = 0.0
+        daily_pnl[exit_date] += t.pnl
+
+    winning_days = sum(1 for pnl in daily_pnl.values() if pnl > 0)
+    losing_days = sum(1 for pnl in daily_pnl.values() if pnl < 0)
+    draw_days = sum(1 for pnl in daily_pnl.values() if pnl == 0)
+
+    # Best and worst days
+    if daily_pnl:
+        best_day_pnl = max(daily_pnl.values())
+        worst_day_pnl = min(daily_pnl.values())
+    else:
+        best_day_pnl = 0.0
+        worst_day_pnl = 0.0
+
+    # Total days and trades per day
+    total_days = metrics.get("total_days", 1)
+    trades_per_day = len(result.trades) / total_days if total_days > 0 else 0.0
+
     # Build timerange in YYYYMMDD-YYYYMMDD format (required by FreqUI TimeRangeSelect.vue)
     timerange_start = result.start_date.replace("-", "")[:8]  # "2025-11-01" -> "20251101"
     timerange_end = result.end_date.replace("-", "")[:8]      # "2026-03-24" -> "20260324"
     timerange = f"{timerange_start}-{timerange_end}"
 
-    # Build strategy metrics dict
-    metrics = result.metrics.copy()
+    # Build strategy metrics dict (metrics already defined earlier)
+    
+    # Calculate cumulative sum min/max from daily NAV data if available
+    # For now, use approximations based on max drawdown
+    final_balance = result.final_nav
+    starting_balance = result.initial_capital
+    max_dd = metrics.get("max_drawdown", 0.0)
+    
+    csum_max = final_balance - starting_balance
+    csum_min = -(max_dd * starting_balance) if max_dd > 0 else 0.0
+    
+    # Drawdown timestamps - approximate using backtest period
+    drawdown_start_ts = _date_to_ms_epoch(result.start_date)
+    drawdown_end_ts = _date_to_ms_epoch(result.end_date)
+    
+    # Calculate average stake and total volume
+    avg_stake_amount = sum(t.shares * t.entry_price for t in result.trades) / len(result.trades) if result.trades else 0.0
+    total_volume = sum(t.shares * t.entry_price for t in result.trades)
+
     strategy_data: dict[str, Any] = {
         "trades": trades,
         "profit_total": metrics.get("profit_total", 0.0),
@@ -216,8 +341,8 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
         "backtest_days": metrics.get("total_days", 0),  # Alias for total_days
         "backtest_start": result.start_date,
         "backtest_end": result.end_date,
-        "backtest_start_ts": _date_to_ms_epoch(result.start_date),  # Required by FreqUI
-        "backtest_end_ts": _date_to_ms_epoch(result.end_date),      # Required by FreqUI
+        "backtest_start_ts": _date_to_ms_epoch(result.start_date),  # Required by FreqUI - must be integer
+        "backtest_end_ts": _date_to_ms_epoch(result.end_date),      # Required by FreqUI - must be integer
         "timerange": timerange,  # Required by FreqUI TimeRangeSelect.vue (format: "20251101-20260324")
         "timeframe": "1d",  # Required by FreqUI
         "strategy_name": strategy_name,  # Required by FreqUI
@@ -229,6 +354,39 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
         "initial_capital": result.initial_capital,
         "final_nav": result.final_nav,
         "exit_reason_summary": exit_reason_summary,  # FreqUI needs this for performance metrics
+        # New required fields for FreqUI BacktestResultAnalysis.vue
+        "strategy_comparison": strategy_comparison,
+        "results_per_pair": results_per_pair,  # MUST be array
+        "results_per_enter_tag": [],  # Empty array, MUST exist
+        "pairlist": pairlist,  # MUST be array
+        "best_pair": best_pair,
+        "worst_pair": worst_pair,
+        "market_change": metrics.get("market_change", 0.0),
+        "rejected_signals": 0,
+        "timedout_entry_orders": 0,
+        "timedout_exit_orders": 0,
+        "canceled_trade_entries": 0,
+        "backtest_best_day": best_day_pnl / starting_balance if starting_balance > 0 else 0.0,
+        "backtest_worst_day": worst_day_pnl / starting_balance if starting_balance > 0 else 0.0,
+        "backtest_best_day_abs": best_day_pnl,
+        "backtest_worst_day_abs": worst_day_pnl,
+        "winning_days": winning_days,
+        "draw_days": draw_days,
+        "losing_days": losing_days,
+        "trades_per_day": trades_per_day,
+        "csum_min": csum_min,
+        "csum_max": csum_max,
+        "drawdown_start_ts": drawdown_start_ts,
+        "drawdown_end_ts": drawdown_end_ts,
+        "max_drawdown_high": starting_balance,
+        "max_drawdown_low": starting_balance * (1 - max_dd) if max_dd > 0 else starting_balance,
+        "stoploss": -0.1,
+        "trailing_stop": False,
+        "minimal_roi": {"0": 0.1},
+        "use_exit_signal": True,
+        "enable_protections": False,
+        "avg_stake_amount": avg_stake_amount,
+        "total_volume": total_volume,
     }
 
     # Build metadata dict
@@ -498,6 +656,7 @@ def get_backtest_history_result(
     # Build trades in FreqTrade format
     trades: list[dict[str, Any]] = []
     for t in trades_data:
+        stake_amount = round(t["shares"] * t["entry_price"], 2)
         trades.append({
             "trade_id": t["trade_id"],
             "pair": t["symbol"],
@@ -508,7 +667,7 @@ def get_backtest_history_result(
             "profit_abs": t["pnl"],
             "profit_ratio": t["pnl_pct"],
             "profit_pct": round(t["pnl_pct"] * 100, 4),
-            "stake_amount": round(t["shares"] * t["entry_price"], 2),
+            "stake_amount": stake_amount,
             "amount": t["shares"],
             "is_open": False,
             "exchange": "ashare",
@@ -517,24 +676,147 @@ def get_backtest_history_result(
             "fee_close": 0.0013,
             "open_timestamp": _date_to_ms_epoch(t["entry_date"]),
             "close_timestamp": _date_to_ms_epoch(t["exit_date"]),
+            # Additional required fields
+            "leverage": 1.0,
+            "is_short": False,
+            "trading_mode": "spot",
+            "orders": [],
+            "max_stake_amount": None,
+            "open_order_id": None,
+            "has_open_orders": False,
+            "enter_tag": None,
+            "quote_currency": "CNY",
         })
 
+    # Build results_per_pair
+    pair_stats: dict[str, dict[str, Any]] = {}
+    for t in trades_data:
+        pair = t["symbol"]
+        if pair not in pair_stats:
+            pair_stats[pair] = {
+                "key": pair,
+                "trades": 0,
+                "profit_mean": 0.0,
+                "profit_total": 0.0,
+                "profit_total_abs": 0.0,
+                "wins": 0,
+                "draws": 0,
+                "losses": 0,
+            }
+        stats = pair_stats[pair]
+        stats["trades"] += 1
+        stats["profit_total"] += t["pnl_pct"]
+        stats["profit_total_abs"] += t["pnl"]
+        if t["pnl"] > 0:
+            stats["wins"] += 1
+        elif t["pnl"] < 0:
+            stats["losses"] += 1
+        else:
+            stats["draws"] += 1
+
+    results_per_pair = []
+    for pair, stats in pair_stats.items():
+        if stats["trades"] > 0:
+            stats["profit_mean"] = stats["profit_total"] / stats["trades"]
+        results_per_pair.append(stats)
+    results_per_pair.sort(key=lambda x: x["profit_total_abs"], reverse=True)
+
+    pairlist = list(pair_stats.keys())
+
+    if results_per_pair:
+        best_pair = {"key": results_per_pair[0]["key"], "profit_total": results_per_pair[0]["profit_total"]}
+        worst_pair = {"key": results_per_pair[-1]["key"], "profit_total": results_per_pair[-1]["profit_total"]}
+    else:
+        best_pair = {"key": "", "profit_total": 0.0}
+        worst_pair = {"key": "", "profit_total": 0.0}
+
+    # Strategy comparison
+    total_wins = sum(1 for t in trades_data if t["pnl"] > 0)
+    total_losses = sum(1 for t in trades_data if t["pnl"] < 0)
+    total_draws = len(trades_data) - total_wins - total_losses
+    total_profit = sum(t["pnl_pct"] for t in trades_data)
+    total_profit_abs = sum(t["pnl"] for t in trades_data)
+    
+    strategy_comparison = [{
+        "key": strategy_name,
+        "trades": len(trades_data),
+        "profit_mean": total_profit / len(trades_data) if trades_data else 0.0,
+        "profit_total_abs": total_profit_abs,
+        "profit_total_pct": total_profit * 100,
+        "duration_avg": 0.0,  # Could calculate from trades if needed
+        "wins": total_wins,
+        "draws": total_draws,
+        "losses": total_losses,
+        "max_drawdown_account": metrics.get("max_drawdown", 0.0),
+    }]
+
+    # Timerange
+    timerange_start = run["start_date"].replace("-", "")[:8]
+    timerange_end = run["end_date"].replace("-", "")[:8]
+    timerange = f"{timerange_start}-{timerange_end}"
+
+    # Additional stats
+    starting_balance = run["initial_capital"]
+    max_dd = metrics.get("max_drawdown", 0.0)
+    
     strategy_data: dict[str, Any] = {
         "trades": trades,
         "profit_total": metrics.get("profit_total", 0.0),
         "profit_total_abs": metrics.get("profit_total_abs", 0.0),
-        "max_drawdown": metrics.get("max_drawdown", 0.0),
+        "max_drawdown": max_dd,
         "max_drawdown_abs": metrics.get("max_drawdown_abs", 0.0),
-        "sharpe": metrics.get("sharpe", 0.0),
-        "sortino": metrics.get("sortino", 0.0),
-        "calmar": metrics.get("calmar", 0.0),
-        "winrate": metrics.get("winrate", 0.0),
+        "sharpe": metrics.get("sharpe", 0.0) or 0.0,
+        "sortino": metrics.get("sortino", 0.0) or 0.0,
+        "calmar": metrics.get("calmar", 0.0) or 0.0,
+        "winrate": metrics.get("winrate", 0.0) or 0.0,
         "trade_count": metrics.get("trade_count", 0),
-        "profit_factor": metrics.get("profit_factor", 0.0),
-        "cagr": metrics.get("cagr", 0.0),
+        "total_trades": metrics.get("trade_count", 0),
+        "profit_factor": metrics.get("profit_factor", 0.0) or 0.0,
+        "cagr": metrics.get("cagr", 0.0) or 0.0,
         "backtest_start": run["start_date"],
         "backtest_end": run["end_date"],
+        "backtest_start_ts": _date_to_ms_epoch(run["start_date"]),
+        "backtest_end_ts": _date_to_ms_epoch(run["end_date"]),
         "initial_capital": run["initial_capital"],
+        "timerange": timerange,
+        "timeframe": "1d",
+        "strategy_name": strategy_name,
+        "stake_currency": "CNY",
+        "starting_balance": starting_balance,
+        "max_open_trades": 5,
+        # New required fields
+        "strategy_comparison": strategy_comparison,
+        "results_per_pair": results_per_pair,
+        "results_per_enter_tag": [],
+        "pairlist": pairlist,
+        "best_pair": best_pair,
+        "worst_pair": worst_pair,
+        "market_change": metrics.get("market_change", 0.0),
+        "rejected_signals": 0,
+        "timedout_entry_orders": 0,
+        "timedout_exit_orders": 0,
+        "canceled_trade_entries": 0,
+        "backtest_best_day": 0.0,
+        "backtest_worst_day": 0.0,
+        "backtest_best_day_abs": 0.0,
+        "backtest_worst_day_abs": 0.0,
+        "winning_days": 0,
+        "draw_days": 0,
+        "losing_days": 0,
+        "trades_per_day": 0.0,
+        "csum_min": 0.0,
+        "csum_max": 0.0,
+        "drawdown_start_ts": _date_to_ms_epoch(run["start_date"]),
+        "drawdown_end_ts": _date_to_ms_epoch(run["end_date"]),
+        "max_drawdown_high": starting_balance,
+        "max_drawdown_low": starting_balance * (1 - max_dd) if max_dd > 0 else starting_balance,
+        "stoploss": -0.1,
+        "trailing_stop": False,
+        "minimal_roi": {"0": 0.1},
+        "use_exit_signal": True,
+        "enable_protections": False,
+        "avg_stake_amount": sum(t["shares"] * t["entry_price"] for t in trades_data) / len(trades_data) if trades_data else 0.0,
+        "total_volume": sum(t["shares"] * t["entry_price"] for t in trades_data),
     }
 
     metadata: dict[str, Any] = {
