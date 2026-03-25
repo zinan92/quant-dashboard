@@ -6,12 +6,37 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from src.data_layer.index_fetcher import IndexFetcher
 
 
 @pytest.fixture
 def client() -> TestClient:
     """Create a test client for the FastAPI app."""
     return TestClient(app)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_csi300_data() -> None:
+    """Seed CSI 300 data once at the start of the test session.
+
+    This fixture runs before any tests and ensures the index_cache.db
+    has CSI 300 data available for testing.
+    """
+    fetcher = IndexFetcher()
+    df = fetcher.get_csi300()
+    if df.empty:
+        try:
+            # Fetch real data from AkShare (this will be cached for all tests)
+            fetcher.fetch_and_store(
+                symbol="000300",
+                period="daily",
+                start_date="20251101",
+                end_date="20260325",
+            )
+        except Exception as e:
+            # If AkShare fails (network issues, rate limiting), skip seeding
+            # The CSI 300 test will be handled separately
+            pytest.skip(f"Failed to seed CSI 300 data from AkShare: {e}")
 
 
 @pytest.fixture
@@ -316,3 +341,54 @@ class TestPlotConfig:
         """Plot config endpoint requires authentication."""
         response = client.get("/api/v1/plot_config")
         assert response.status_code == 401
+
+
+class TestIndexDataAccess:
+    """Test that pair_candles endpoint serves INDEX data."""
+
+    def test_pair_candles_serves_chinext_index(self, client: TestClient, auth_token: str) -> None:
+        """Pair candles returns ChiNext (399006.SZ) index data from market.db."""
+        response = client.get(
+            "/api/v1/pair_candles?pair=399006.SZ&timeframe=1d",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["pair"] == "399006.SZ"
+        assert len(data["data"]) > 0
+
+    def test_pair_candles_serves_csi300_index(self, client: TestClient, auth_token: str) -> None:
+        """Pair candles returns CSI 300 (000300.SH) index data from index_cache.db.
+
+        This test verifies that:
+        1. The IndexFetcher seeding on startup works
+        2. pair_candles correctly queries index_cache.db for CSI 300
+        3. At least 60 data points are available (VAL-DATA-002 requirement)
+        """
+        response = client.get(
+            "/api/v1/pair_candles?pair=000300.SH&timeframe=1d",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["pair"] == "000300.SH"
+        assert len(data["data"]) >= 60, "CSI 300 data should have at least 60 data points"
+
+    def test_pair_candles_index_data_format(self, client: TestClient, auth_token: str) -> None:
+        """INDEX data follows the same format as STOCK data."""
+        response = client.get(
+            "/api/v1/pair_candles?pair=399006.SZ&timeframe=1d",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        data = response.json()
+
+        # Same columns as STOCK data
+        assert data["columns"] == ["date", "open", "high", "low", "close", "volume"]
+
+        # Data is 2D array with 6 elements per candle
+        assert isinstance(data["data"], list)
+        assert len(data["data"]) > 0
+        candle = data["data"][0]
+        assert len(candle) == 6

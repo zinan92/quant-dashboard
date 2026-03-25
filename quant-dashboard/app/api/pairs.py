@@ -17,6 +17,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import get_current_user
+from src.data_layer.index_fetcher import IndexFetcher
 from src.data_layer.market_reader import MarketReader
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["pairs"])
 
 _reader = MarketReader()
+_index_fetcher = IndexFetcher()
 
 
 def _date_to_ms_epoch(date_str: str) -> int:
@@ -118,7 +120,7 @@ def get_pair_candles(
     """Get OHLCV candlestick data for a pair.
 
     Query parameters:
-        pair: Stock symbol code (e.g., "000001")
+        pair: Stock or index symbol code (e.g., "000001" for stock, "399006.SZ" for ChiNext, "000300.SH" for CSI 300)
         timeframe: Timeframe (default "1d")
         limit: Number of candles to return (default 500)
 
@@ -134,10 +136,26 @@ def get_pair_candles(
         }
 
     FreqTrade format uses a 2D array for OHLCV data with a separate columns header.
+
+    This endpoint serves both STOCK data (from market.db) and INDEX data:
+    - For indices in market.db (399006.SZ, etc.): read from market.db
+    - For CSI 300 (000300.SH or 000300): read from index_cache.db
     """
+    import pandas as pd
+
     try:
-        # Fetch K-line data from market.db
+        df = pd.DataFrame()
+
+        # Try to get stock data first
         df = _reader.get_stock_klines(pair, timeframe="DAY")
+
+        # If no stock data, try index data from market.db
+        if df.empty:
+            df = _reader.get_index_klines(pair, timeframe="DAY")
+
+        # If still no data and the symbol looks like CSI 300, try index_cache.db
+        if df.empty and pair in ("000300.SH", "000300"):
+            df = _index_fetcher.get_csi300()
 
         if df.empty:
             raise HTTPException(
