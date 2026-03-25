@@ -1,0 +1,70 @@
+{
+  "groupId": "stock-backfill",
+  "testedAt": "2026-03-26T01:38:00Z",
+  "isolation": {
+    "surface": "shell (sqlite3 queries + code inspection)",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "mode": "read-only"
+  },
+  "toolsUsed": ["sqlite3", "grep", "read"],
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-001",
+      "title": "Stock Daily Data Covers 5-Year Date Range",
+      "status": "fail",
+      "reason": "341 pre-2021 stocks have data starting only from 2025-08-06, not 2021-01-04. Backfill scripts exist and are correct but were never run to completion for the full universe.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-001-query-output.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-002",
+      "title": "Sufficient Row Count Per Stock",
+      "status": "fail",
+      "reason": "341 pre-2021 stocks have ~152 rows instead of >= 1100. Only 2 stocks have 1000+ rows.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-002-query-output.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-003",
+      "title": "No Significant Gaps in Stock Daily Data",
+      "status": "fail",
+      "reason": "Within existing data range gaps are minimal, but 5-year backfill prerequisite not met. Most stocks only have ~155 days of data, not 5 years.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-003-gap-analysis.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-008",
+      "title": "Backfill Scripts Are Idempotent",
+      "status": "pass",
+      "reason": "No duplicates found in klines table. Code uses UPSERT via ON CONFLICT DO UPDATE properly implemented.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-008-idempotency.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-009",
+      "title": "Backfill Scripts Support Resume",
+      "status": "pass",
+      "reason": "Resume logic exists: per-stock MAX(trade_time) check, skip logic, start_date adjustment to resume from last checkpoint.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-009-resume-logic.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-012",
+      "title": "All ~1000 Stocks Backfilled",
+      "status": "fail",
+      "reason": "Only 423 distinct stocks in klines (DAY), need >= 800. Below 600 fail threshold.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-012-stock-count.txt"
+    },
+    {
+      "id": "VAL-BACKFILL-021",
+      "title": "Post-2021 IPO Stocks Backfilled from List Date",
+      "status": "fail",
+      "reason": "Post-2021 IPO stocks start from 2025-08-06, not their list_date (1400+ days late). Backfill not executed for expanded universe.",
+      "evidence": "historical-backfill/stock-backfill/VAL-BACKFILL-021-post2021-ipo.txt"
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Stock backfill scripts are well-implemented (idempotent, resumable, correct TuShare usage) but were never run to completion for the full expanded universe of ~1000 stocks. Only 423 stocks have data, and most only have ~155 days.",
+      "affectedAssertions": ["VAL-BACKFILL-001", "VAL-BACKFILL-002", "VAL-BACKFILL-003", "VAL-BACKFILL-012", "VAL-BACKFILL-021"]
+    }
+  ],
+  "summary": "Tested 7 assertions: 2 passed, 5 failed. Root cause: backfill scripts are correctly implemented but were not run to completion for the full expanded universe."
+}

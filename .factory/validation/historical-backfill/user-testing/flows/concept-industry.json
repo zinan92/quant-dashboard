@@ -1,0 +1,159 @@
+{
+  "groupId": "concept-industry",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "testingSurface": "shell (sqlite3 queries + code inspection)",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "pythonVenv": ".venv/bin/python",
+    "mode": "read-only"
+  },
+  "toolsUsed": ["sqlite3", "grep", "read"],
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-006",
+      "title": "Concept Board Data Has Historical Coverage",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "SELECT MIN(trade_date), MAX(trade_date), COUNT(*), COUNT(DISTINCT code) FROM concept_daily",
+          "expected": "MIN(trade_date) <= '20240325' and COUNT(DISTINCT code) >= 300",
+          "observed": "MIN(trade_date) = '20260129', MAX = '20260325', 12999 rows, 396 distinct codes"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "20260129|20260325|12999|396",
+        "files": ["historical-backfill/concept-industry/VAL-BACKFILL-006-concept-date-range.txt"]
+      },
+      "issues": "concept_daily only has ~2 months of data (2026-01-29 to 2026-03-25). MIN(trade_date) = 20260129 is far after the required <= 20240325. The backfill script exists and correctly calls ths_daily() with default start_date='20210101', but the historical backfill has not been executed — only recent scheduler updates are present. Distinct code count (396) meets the >= 300 threshold."
+    },
+    {
+      "id": "VAL-BACKFILL-007",
+      "title": "Industry Board Data Has Historical Coverage",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "SELECT MIN(trade_date), MAX(trade_date), COUNT(*), COUNT(DISTINCT ts_code) FROM industry_daily",
+          "expected": "MIN(trade_date) <= '20240325' and COUNT(DISTINCT ts_code) >= 80",
+          "observed": "MIN(trade_date) = '20260129', MAX = '20260325', 1980 rows, 90 distinct ts_codes"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "20260129|20260325|1980|90",
+        "files": ["historical-backfill/concept-industry/VAL-BACKFILL-007-industry-date-range.txt"]
+      },
+      "issues": "industry_daily only has ~2 months of data (2026-01-29 to 2026-03-25). MIN(trade_date) = 20260129 is far after the required <= 20240325. The backfill script exists and correctly iterates dates calling moneyflow_ind_ths(), but historical backfill has not been executed. Distinct ts_code count (90) meets the >= 80 threshold."
+    },
+    {
+      "id": "VAL-BACKFILL-018",
+      "title": "Concept Backfill Uses TuShare ths_daily()",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read scripts/backfill_concept_daily.py and inspect API call",
+          "expected": "Code calls pro.ths_daily()",
+          "observed": "Line ~100: client.pro.ths_daily(ts_code=ts_code, start_date=args.start_date)"
+        },
+        {
+          "action": "Verify no AkShare usage for concept data",
+          "expected": "No AkShare imports/calls for concept historical data",
+          "observed": "Script imports only TushareClient, not AkShare"
+        }
+      ],
+      "evidence": {
+        "codeSnippet": "df = client.pro.ths_daily(ts_code=ts_code, start_date=args.start_date)",
+        "files": ["historical-backfill/concept-industry/VAL-BACKFILL-018-concept-code-inspection.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-019",
+      "title": "Industry Backfill Uses TuShare moneyflow_ind_ths()",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read scripts/backfill_industry_daily.py and inspect API call pattern",
+          "expected": "Code iterates dates and calls moneyflow_ind_ths(trade_date=...)",
+          "observed": "Script iterates over dates_to_process and calls client.fetch_ths_industry_moneyflow(trade_date=trade_date)"
+        },
+        {
+          "action": "Verify fetch_ths_industry_moneyflow wraps moneyflow_ind_ths",
+          "expected": "Wrapper method calls self.pro.moneyflow_ind_ths",
+          "observed": "tushare_client.py line 462: self.pro.moneyflow_ind_ths, trade_date=trade_date"
+        },
+        {
+          "action": "Verify date iteration (not just latest day)",
+          "expected": "Script processes multiple dates from trade calendar",
+          "observed": "Script gets trading dates via get_trading_dates(), filters out existing dates, iterates each missing date"
+        }
+      ],
+      "evidence": {
+        "codeSnippet": "for idx, trade_date in enumerate(dates_to_process, 1):\n    df = client.fetch_ths_industry_moneyflow(trade_date=trade_date)",
+        "wrapperSnippet": "self._request_with_retry(self.pro.moneyflow_ind_ths, trade_date=trade_date, ts_code=ts_code)",
+        "files": ["historical-backfill/concept-industry/VAL-BACKFILL-019-industry-code-inspection.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-022",
+      "title": "Concept/Industry Schema Compatible with TuShare Response",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "PRAGMA table_info(concept_daily) — check schema columns",
+          "expected": "Schema has columns for ths_daily() response fields",
+          "observed": "21 columns including trade_date, code, name, close, pct_change, volume, amount, open, high, low — covers all critical ths_daily() fields"
+        },
+        {
+          "action": "PRAGMA table_info(industry_daily) — check schema columns",
+          "expected": "Schema has columns for moneyflow_ind_ths() response fields",
+          "observed": "21 columns including trade_date, ts_code, industry, close, pct_change, company_num, net_amount, net_buy_amount, net_sell_amount — covers all critical moneyflow fields"
+        },
+        {
+          "action": "Check concept_daily for NULL critical fields",
+          "expected": "No NULL in required fields, NULLs acceptable in nullable columns",
+          "observed": "21 rows with NULL open/high/low (nullable columns) — acceptable; 0 rows with NULL close/pct_change"
+        },
+        {
+          "action": "Check industry_daily for NULL critical fields",
+          "expected": "No NULL in required fields",
+          "observed": "0 rows with NULL close, pct_change, or company_num"
+        },
+        {
+          "action": "Verify field mapping in backfill scripts",
+          "expected": "TuShare response fields properly mapped to DB columns with type conversion",
+          "observed": "Both scripts use float() conversion with fallback to 0, nullable columns for optional fields, INSERT OR IGNORE for dedup"
+        },
+        {
+          "action": "Check backfill logs for insertion errors",
+          "expected": "No insertion errors in logs",
+          "observed": "No log files found in logs/ directory — cannot verify from logs. However, code has proper error handling (try/except with session.rollback()) and type conversion."
+        }
+      ],
+      "evidence": {
+        "conceptSchema": "id|INTEGER, trade_date|VARCHAR(8), code|VARCHAR(16), name|VARCHAR(64), close|FLOAT, pct_change|FLOAT, volume|FLOAT, amount|FLOAT, leader_symbol|VARCHAR(16), leader_name|VARCHAR(64), leader_pct_change|FLOAT, up_count|INTEGER, down_count|INTEGER, created_at|DATETIME, updated_at|DATETIME, net_inflow|FLOAT, rank|INTEGER, total_boards|INTEGER, open|FLOAT, high|FLOAT, low|FLOAT",
+        "industrySchema": "id|INTEGER, trade_date|VARCHAR(8), ts_code|VARCHAR(16), industry|VARCHAR(64), close|FLOAT, pct_change|FLOAT, company_num|INTEGER, up_count|INTEGER, down_count|INTEGER, lead_stock|VARCHAR(64), lead_stock_code|VARCHAR(16), pct_change_stock|FLOAT, close_price|FLOAT, net_buy_amount|FLOAT, net_sell_amount|FLOAT, net_amount|FLOAT, industry_pe|FLOAT, pe_median|FLOAT, total_mv|FLOAT, created_at|DATETIME, updated_at|DATETIME",
+        "conceptNullCheck": "21 rows with NULL open/high/low (nullable columns)",
+        "industryNullCheck": "0 rows with NULL required fields",
+        "files": ["historical-backfill/concept-industry/VAL-BACKFILL-022-schema-compatibility.txt"]
+      },
+      "issues": "No backfill logs available to verify absence of insertion errors during actual backfill execution. Evidence is based on code inspection and current data state."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "No backfill log files exist in logs/ directory, making it impossible to verify insertion error absence for VAL-BACKFILL-022 from actual execution logs",
+      "resolved": true,
+      "resolution": "Used code inspection and data integrity checks (NULL queries) as alternative evidence",
+      "affectedAssertions": ["VAL-BACKFILL-022"]
+    },
+    {
+      "description": "The ths_daily() method is not wrapped in a TushareClient helper method — backfill_concept_daily.py calls client.pro.ths_daily() directly instead of going through a wrapper like fetch_ths_daily(). This is inconsistent with the industry script which uses fetch_ths_industry_moneyflow() wrapper.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-BACKFILL-018"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 3 passed (VAL-BACKFILL-018, VAL-BACKFILL-019, VAL-BACKFILL-022), 2 failed (VAL-BACKFILL-006, VAL-BACKFILL-007). The concept and industry backfill scripts are correctly implemented using the required TuShare APIs (ths_daily and moneyflow_ind_ths) with proper date iteration and schema compatibility, but the historical backfill has not been executed — both tables only contain ~2 months of recent data instead of the required 2-year minimum."
+}

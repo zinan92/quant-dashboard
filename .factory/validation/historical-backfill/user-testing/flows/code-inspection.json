@@ -1,0 +1,223 @@
+{
+  "groupId": "code-inspection",
+  "testedAt": "2026-03-26T02:00:00Z",
+  "isolation": {
+    "surface": "shell (code inspection + sqlite3 queries + CLI)",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "pythonVenv": ".venv/bin/python",
+    "mode": "READ-ONLY"
+  },
+  "toolsUsed": ["sqlite3", "grep", "python", "Read"],
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-010",
+      "title": "TuShare Rate Limiting Respected",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect RateLimiter class in src/services/tushare_client.py",
+          "expected": "RateLimiter enforces max_calls per time_window",
+          "observed": "RateLimiter(max_calls=180, time_window=60) with sliding window enforcement. wait_if_needed() sleeps when limit reached."
+        },
+        {
+          "action": "Verify TushareClient uses RateLimiter in _request_with_retry()",
+          "expected": "rate_limiter.wait_if_needed() called before each API request",
+          "observed": "Confirmed: _request_with_retry() calls self.rate_limiter.wait_if_needed() before every API call, plus 0.3s base delay"
+        },
+        {
+          "action": "Verify backfill_stock_daily.py uses TushareClient",
+          "expected": "Backfill goes through rate-limited client",
+          "observed": "Line 71: TushareClient initialized. Line 324: self.tushare_client.fetch_daily() — all calls rate-limited"
+        },
+        {
+          "action": "Grep logs for rate-limit errors: '达到调用限制', 'exceed', '429'",
+          "expected": "No rate-limit errors in logs",
+          "observed": "0 occurrences of '达到调用限制'. '429' matches are all timestamp substrings (e.g., '14:45:11,429'). 'exceed' matches are 'IP数量超限' (pre-existing IP count issue, not rate limit). No actual rate-limit errors found."
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-010-rate-limiter-code.txt"],
+        "codeInspection": "RateLimiter in tushare_client.py enforces 180 calls/min sliding window. All backfill API calls go through _request_with_retry() → rate_limiter.wait_if_needed().",
+        "logGrep": "grep '达到调用限制' logs/ → 0 matches. grep '429' → only timestamp matches. grep 'exceed' → only IP count limit (known pre-existing issue)."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-011",
+      "title": "Backfill Does Not Conflict With Live Scheduler",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check SQLite journal mode",
+          "expected": "WAL mode enabled",
+          "observed": "PRAGMA journal_mode returns 'wal'"
+        },
+        {
+          "action": "Inspect database.py for WAL mode and timeout configuration",
+          "expected": "WAL mode set programmatically, timeout > 0",
+          "observed": "WAL mode set via PRAGMA journal_mode=WAL on every connection. Timeout=30s. PRAGMA synchronous=NORMAL and cache_size=10000 also set."
+        },
+        {
+          "action": "Grep logs for 'database is locked' during backfill period",
+          "expected": "No lock errors during backfill runs",
+          "observed": "Current service.log (containing backfill runs on 2026-03-26): 0 occurrences. Older logs (service.log.2, .4) have some from pre-backfill era (Feb-Mar 2026 30m kline updates — known issue)."
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-011-wal-mode-concurrency.txt"],
+        "sqliteQuery": "PRAGMA journal_mode → wal",
+        "codeInspection": "database.py: WAL mode, timeout=30s, check_same_thread=False",
+        "logGrep": "No 'database is locked' in service.log during backfill runs (2026-03-26)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-013",
+      "title": "Backfill Uses TuShare pro.daily() for Stocks",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect backfill_stock_daily.py for data source",
+          "expected": "Uses TushareClient.fetch_daily() or pro.daily()",
+          "observed": "Line 44: imports TushareClient. Line 71: instantiates TushareClient. Line 324: calls self.tushare_client.fetch_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)"
+        },
+        {
+          "action": "Verify TushareClient.fetch_daily() calls pro.daily()",
+          "expected": "Calls self.pro.daily()",
+          "observed": "In tushare_client.py, fetch_daily() calls self._request_with_retry(self.pro.daily, ...) where self.pro = ts.pro_api(token)"
+        },
+        {
+          "action": "Check for Sina or AkShare usage in backfill script",
+          "expected": "No Sina or AkShare imports/usage",
+          "observed": "grep confirms 0 occurrences of 'akshare', 'AkShare', 'sina', or 'Sina' in backfill_stock_daily.py"
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-013-tushare-daily-usage.txt"],
+        "codeInspection": "backfill_stock_daily.py line 324: self.tushare_client.fetch_daily() → pro.daily()"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-015",
+      "title": "OHLCV Fields Are Non-Null and Valid",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Query for NULL OHLCV fields in daily klines",
+          "expected": "COUNT(*) = 0",
+          "observed": "SELECT COUNT(*) FROM klines WHERE (open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL) AND timeframe='DAY' → 0"
+        },
+        {
+          "action": "Query for high < low violations in daily klines",
+          "expected": "COUNT(*) = 0",
+          "observed": "SELECT COUNT(*) FROM klines WHERE high < low AND timeframe='DAY' → 0"
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-015-ohlcv-validation.txt"],
+        "sqliteQueries": [
+          "SELECT COUNT(*) FROM klines WHERE (open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL) AND timeframe='DAY' → 0",
+          "SELECT COUNT(*) FROM klines WHERE high < low AND timeframe='DAY' → 0"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-016",
+      "title": "Backfill Progress Is Logged",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect backfill_stock_daily.py for progress logging",
+          "expected": "Periodic progress logging at regular intervals",
+          "observed": "PROGRESS_LOG_INTERVAL=50. log_progress() called every 50 stocks showing: count/total, success/skip/fail, rows inserted, rate, ETA. Also called at completion."
+        },
+        {
+          "action": "Inspect backfill_industry_daily.py for progress logging",
+          "expected": "Progress logging present",
+          "observed": "Prints [idx/total] per trade date, plus progress indicator every 50 dates with percentage and ETA"
+        },
+        {
+          "action": "Inspect backfill_concept_daily.py for progress logging",
+          "expected": "Progress logging present",
+          "observed": "Prints [idx+1/total_concepts] for each concept with name and code"
+        },
+        {
+          "action": "Check logs for actual progress output",
+          "expected": "Progress messages in log files",
+          "observed": "service.log contains: 'Stock Daily Kline Backfill', 'Progress: 10/10 (100.0%)', 'BACKFILL COMPLETE' — confirms progress logging works"
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-016-progress-logging.txt"],
+        "codeInspection": "PROGRESS_LOG_INTERVAL=50 in backfill_stock_daily.py. All 4 scripts log per-item progress and completion summary.",
+        "logEvidence": "service.log shows 'Progress: 10/10 (100.0%)' and 'BACKFILL COMPLETE' messages"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-017",
+      "title": "Graceful Handling of Delisted/Suspended Stocks",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect backfill_stock_daily.py for empty response handling",
+          "expected": "Script logs warning and continues when TuShare returns empty",
+          "observed": "Lines 330-334: if df is None or df.empty: logger.warning('Empty response from TuShare (may be delisted/suspended)'); return (False, 0)"
+        },
+        {
+          "action": "Check for try/except around fetch and insert operations",
+          "expected": "Exceptions caught, script continues to next stock",
+          "observed": "Three levels of exception handling: (1) outer try/except around entire fetch+save (line 320/389), (2) inner try/except around DB operations (line 362/381), (3) catch-all in main loop (line 495) with 'continue' to proceed to next stock"
+        },
+        {
+          "action": "Verify main loop continues after failures",
+          "expected": "continue statement after exception handling",
+          "observed": "Line 497: 'continue' after logging error and incrementing fail_count — processing resumes with next stock"
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-017-graceful-error-handling.txt"],
+        "codeInspection": "Empty response → warning + return. Exceptions → error log + continue. backfill_index_daily.py follows same pattern."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-020",
+      "title": "Backfill CLI Entry Points Exist",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run backfill_stock_daily.py --help",
+          "expected": "Help text displayed, exit code 0",
+          "observed": "usage: backfill_stock_daily.py [-h] [--dry-run] [--limit LIMIT] — exit code 0"
+        },
+        {
+          "action": "Run backfill_index_daily.py --help",
+          "expected": "Help text displayed, exit code 0",
+          "observed": "usage: backfill_index_daily.py [-h] [--dry-run] — exit code 0"
+        },
+        {
+          "action": "Run backfill_concept_daily.py --help",
+          "expected": "Help text displayed, exit code 0",
+          "observed": "usage: backfill_concept_daily.py [-h] [--dry-run] [--start-date] [--limit] — exit code 0"
+        },
+        {
+          "action": "Run backfill_industry_daily.py --help",
+          "expected": "Help text displayed, exit code 0",
+          "observed": "usage: backfill_industry_daily.py [-h] [--dry-run] [--start-date] [--end-date] [--batch-size] — exit code 0"
+        }
+      ],
+      "evidence": {
+        "files": ["historical-backfill/code-inspection/VAL-BACKFILL-020-cli-entry-points.txt"],
+        "cliExecution": "All 4 backfill scripts run with --help without import errors, exit code 0. All use argparse with if __name__ == '__main__' entry points."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 7 passed, 0 failed. All code inspection, database queries, and CLI tests confirm proper implementation of rate limiting (VAL-010), WAL-mode concurrency (VAL-011), TuShare pro.daily() usage (VAL-013), OHLCV data integrity (VAL-015), progress logging (VAL-016), graceful error handling for delisted stocks (VAL-017), and CLI entry points (VAL-020)."
+}

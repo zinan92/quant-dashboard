@@ -1,0 +1,74 @@
+{
+  "groupId": "index-backfill",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "surface": "shell",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "mode": "read-only"
+  },
+  "toolsUsed": ["sqlite3", "grep", "read"],
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-004",
+      "title": "Index Daily Data Covers 5 Years for All 8 Indices",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run SELECT symbol_code, MIN(trade_time), MAX(trade_time), COUNT(*) FROM klines WHERE symbol_type='INDEX' AND timeframe='DAY' AND symbol_code IN (...) GROUP BY symbol_code",
+          "expected": "8 rows, each with min <= 2021-01-08 and count >= 1100 (except 899050.BJ)",
+          "observed": "8 rows returned. 7 indices have min=2021-01-04, count=1264. 899050.BJ has min=2022-12-19, count=789 (expected — BSE 50 launched late 2022)"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/index-backfill/VAL-BACKFILL-004-query-output.txt"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-005",
+      "title": "Index Daily Data Has No Significant Gaps",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cross-reference trade_calendar trading days with klines for 7 indices (2021-01-04 to 2026-03-25)",
+          "expected": "<= 2 missing trading days per index",
+          "observed": "0 missing trading days for all 7 indices (query returned no rows)"
+        },
+        {
+          "action": "Cross-reference trade_calendar with klines for 899050.BJ from 2022-12-19",
+          "expected": "<= 2 missing trading days",
+          "observed": "0 missing trading days"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/index-backfill/VAL-BACKFILL-005-gap-check.txt"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BACKFILL-014",
+      "title": "Backfill Uses TuShare pro.index_daily() for Indices",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect scripts/backfill_index_daily.py for API usage",
+          "expected": "Uses fetch_index_daily() which calls pro.index_daily(), not Sina",
+          "observed": "backfill_index() calls self.tushare_client.fetch_index_daily(). No Sina references found."
+        },
+        {
+          "action": "Verify fetch_index_daily() in tushare_client.py delegates to pro.index_daily()",
+          "expected": "self.pro.index_daily() call",
+          "observed": "Line 599: self.pro.index_daily called via _request_with_retry"
+        }
+      ],
+      "evidence": {
+        "codeInspection": "historical-backfill/index-backfill/VAL-BACKFILL-014-code-inspection.txt"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed. All 8 indices have complete daily data (7 from 2021-01-04 with 1264 rows, 899050.BJ from 2022-12-19 with 789 rows). Zero gaps found for any index. Backfill script correctly uses TuShare pro.index_daily()."
+}

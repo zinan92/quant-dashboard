@@ -192,6 +192,60 @@ Write a JSON report to `.factory/validation/data-infra-fix/user-testing/flows/<g
 
 ---
 
+## Flow Validator Guidance: shell (historical-backfill)
+
+**Testing surface:** Shell commands — sqlite3 queries, code inspection (grep/read), CLI script execution
+**Tool:** No special skill needed — use Execute, Read, Grep tools directly
+**Project root:** `/Users/wendy/work/trading-co/ashare`
+**Database:** `data/market.db` (SQLite, use `sqlite3 data/market.db "<query>"` from project root)
+**Python venv:** `.venv/bin/python` from project root
+**Mission dir:** `/Users/wendy/.factory/missions/5ccfbb11-945c-4b92-969a-cfbdf3f9d668`
+
+### What to test:
+- **Database queries**: Verify stock/index/concept/industry data completeness, row counts, date ranges, null checks
+- **Code inspection**: Check backfill scripts for TuShare API usage, rate limiting, resume logic, error handling
+- **CLI execution**: Verify backfill scripts can be invoked from command line (check --help or import without error)
+
+### Key data state (as of this run):
+- 423 distinct stocks in klines (DAY), 1938 in watchlist
+- 8 indices all present (7 with 1264 rows, 899050.BJ with 789 rows)
+- Stock data ranges: 2021-01-04 to 2026-03-25
+- Concept daily: only 2026-01-29 to 2026-03-25 (~2 months, 396 codes)
+- Industry daily: only 2026-01-29 to 2026-03-25 (~2 months, 90 codes)
+- Most stocks have only 50-199 rows (NOT full 5-year backfill)
+
+### Database conventions:
+- `symbol_type` is 'STOCK' or 'INDEX' (uppercase)
+- `timeframe` is 'DAY' or 'MINS_30' (uppercase)
+- `trade_time` is datetime format 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DD'
+- `concept_daily.trade_date` and `industry_daily.trade_date` are string format 'YYYYMMDD'
+
+### Isolation rules:
+- All assertions are read-only (database SELECT + code inspection + non-destructive CLI)
+- No shared mutable state — all subagents can run in parallel
+- Do NOT run backfill scripts that would modify the database — just verify they exist and can import
+
+### Evidence format:
+Write a JSON report to `.factory/validation/historical-backfill/user-testing/flows/<group-id>.json` with:
+```json
+{
+  "groupId": "<group-id>",
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-NNN",
+      "status": "pass" | "fail" | "blocked",
+      "reason": "description of what was observed",
+      "evidence": "command output or code snippet"
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["sqlite3", "grep", "python"]
+}
+```
+
+---
+
 ## Discovered Testing Knowledge (Backend Milestone)
 
 ### Pair format
