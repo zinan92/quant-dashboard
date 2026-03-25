@@ -1,0 +1,56 @@
+{
+  "featureId": "benchmark-visual-overlay",
+  "milestone": "frontend-followup",
+  "reviewedAt": "2026-03-25T07:10:00.000Z",
+  "commitId": "781de13",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "verdict": "fail",
+  "blockingIssues": [
+    {
+      "severity": "blocking",
+      "description": "File path mismatch: the FastAPI route at app/main.py:99 serves `FileResponse(frontend_dist / 'benchmark.html')` which resolves to `frontend/dist/benchmark.html`, but the committed source file is at `frontend/benchmark.html`. The `frontend/dist/` directory is a build artifact excluded by `.gitignore` (confirmed in both root `.gitignore` and `frontend/.gitignore`). The `dist/benchmark.html` that currently exists on disk is a stale copy from a prior worker session (469 lines, different styling) and differs from the committed source (503 lines). After any `pnpm run build` of FreqUI, the `dist/` directory is regenerated and `benchmark.html` would be deleted. The route should serve from `Path(__file__).parent.parent / 'frontend' / 'benchmark.html'` (the source file) or the file should be copied to `dist/` in a post-build step. This is a deployment-breaking bug: a fresh clone + build would result in a FileNotFoundError at runtime."
+    }
+  ],
+  "nonBlockingIssues": [
+    {
+      "severity": "non_blocking",
+      "description": "Strategy data scope mismatch: `/api/v1/daily` always returns data from the latest backtest run, but the benchmark dropdown allows selecting any historical backtest. If a user selects a non-latest backtest, the strategy line will show data from the wrong run while the benchmark line shows data for the selected run's date range.",
+      "suggestion": "Either scope the strategy data fetch to the selected backtest (e.g., by adding a run_id parameter to the daily endpoint, or reading from backtest history details), or remove the backtest selector dropdown and always show the latest backtest."
+    },
+    {
+      "severity": "non_blocking",
+      "description": "Potential XSS in showError/showInfo: error messages from API responses are interpolated directly into innerHTML via template literals (`container.innerHTML = \\`...${message}...\\``). If an API error response contains HTML/script tags, they would be rendered. Low real-world risk since the API server is trusted, but a code quality issue.",
+      "suggestion": "Use `textContent` instead of `innerHTML` for the message portion, or sanitize the message string before interpolation."
+    },
+    {
+      "severity": "non_blocking",
+      "description": "Hardcoded default credentials (admin:admin) in client-side JavaScript at line ~240 of benchmark.html. This is visible to any user viewing page source.",
+      "suggestion": "This is acceptable for the current development/internal use case per AGENTS.md conventions, but should be removed or made configurable if the dashboard is ever exposed publicly."
+    },
+    {
+      "severity": "non_blocking",
+      "description": "Tests are shallow — they only verify the HTTP response status, content type, and presence of HTML strings. No tests verify the JavaScript data processing logic (cumulative return calculation, date parsing, chart rendering) or the interaction between strategy and benchmark data. Integration tests that mock the API responses and verify the rendered chart data would be more valuable.",
+      "suggestion": "Consider adding tests that mock /api/v1/daily and /api/v1/backtest/history responses to verify the data transformation pipeline, or at minimum test that the rendered HTML includes the correct API endpoint URLs."
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "target": "AGENTS.md",
+      "description": "AGENTS.md documents that custom pages should be served via the SPA fallback pattern but doesn't address the case where a custom static HTML file (outside FreqUI) needs to be served from a separate route. The /benchmark-comparison route is a new pattern (serving a non-FreqUI HTML file before the SPA fallback) that should be documented as a convention for adding custom dashboard pages.",
+      "evidence": "app/main.py:94-99 — the @app.get('/benchmark-comparison') route is defined inside the `if frontend_dist.exists()` block with a comment explaining the ordering requirement ('BEFORE static mounts'). This pattern would need to be followed by any future custom page additions."
+    },
+    {
+      "target": "library",
+      "description": "The frequi-compat.md library file notes that 'frontend/dist/ is excluded by .gitignore' and requires 'pnpm install && pnpm run build' after clone, but doesn't document how to handle custom static files that need to survive FreqUI rebuilds. The benchmark.html deployment gap (source at frontend/benchmark.html, served from frontend/dist/) needs a documented process — either a post-build copy step or a different serving path.",
+      "evidence": "frontend/benchmark.html (503 lines, committed) vs frontend/dist/benchmark.html (469 lines, not tracked, stale from prior session). The diff shows entirely different styling and structure."
+    },
+    {
+      "target": "services.yaml",
+      "description": "No gap observed. The worker correctly used the existing services.yaml configuration (port 8020, uvicorn start command). No new services were introduced.",
+      "evidence": "Worker transcript shows server started on port 8020 per services.yaml spec."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The benchmark-visual-overlay feature implements a standalone HTML page with Plotly.js for comparing strategy vs CSI 300 cumulative returns. The UI design, chart configuration, and data processing logic are well-implemented. However, there is one blocking issue: the FastAPI route serves benchmark.html from frontend/dist/ (a gitignored build artifact directory), while the committed source file lives at frontend/benchmark.html. The file currently in dist/ is a stale copy from a prior worker session with different styling. After any FreqUI rebuild, the benchmark page would disappear. The fix is straightforward — either change the route to serve from the source path or add a post-build copy step. Verdict: FAIL due to the deployment-breaking path mismatch."
+}
