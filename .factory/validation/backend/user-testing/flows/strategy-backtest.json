@@ -1,0 +1,151 @@
+{
+  "groupId": "strategy-backtest",
+  "testedAt": "2026-03-25T11:39:00Z",
+  "isolation": {
+    "apiBaseUrl": "http://localhost:8020",
+    "authCredentials": "admin:admin (HTTP Basic Auth)",
+    "testingTool": "curl"
+  },
+  "toolsUsed": ["curl"],
+  "assertions": [
+    {
+      "id": "VAL-STRAT-001",
+      "title": "Strategy listing includes chan_theory",
+      "status": "pass",
+      "steps": [
+        { "action": "POST /api/v1/token/login with Basic Auth admin:admin", "expected": "200 with access_token", "observed": "200 with access_token and refresh_token" },
+        { "action": "GET /api/v1/strategies with Bearer token", "expected": "JSON with strategies array containing 'chan_theory'", "observed": "Response: {\"strategies\": [\"chan_theory\"]}" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/strategies -> 200, response contains strategies array with 'chan_theory'",
+        "files": ["backend/strategy-backtest/VAL-STRAT-001-strategies.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-STRAT-002",
+      "title": "Strategy details endpoint",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /api/v1/strategy/chan_theory with Bearer token", "expected": "JSON with strategy, timeframe, code, params", "observed": "Response with strategy='chan_theory', timeframe='1d', code (string with full Chan Theory YAML), params (2 param objects: min_bars_between, min_hub_pens)" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/strategy/chan_theory -> 200, all required fields present",
+        "files": ["backend/strategy-backtest/VAL-STRAT-002-strategy-detail.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BT-001",
+      "title": "Start backtest via API",
+      "status": "pass",
+      "steps": [
+        { "action": "POST /api/v1/backtest with {strategy: 'chan_theory', timerange: '20251103-20260324', dry_run_wallet: 1000000}", "expected": "200 with running: true", "observed": "200 with {running: true, progress: 0.0, status: 'running', status_msg: 'Backtest started: chan_theory (2025-11-03 to 2026-03-24)'}" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "POST /api/v1/backtest -> 200, running=true",
+        "files": ["backend/strategy-backtest/VAL-BT-001-003-backtest-result.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BT-002",
+      "title": "Poll backtest progress and completion",
+      "status": "pass",
+      "steps": [
+        { "action": "POST /api/v1/backtest returns running=true (start)", "expected": "running=true during execution", "observed": "POST response showed running=true with progress=0.0" },
+        { "action": "GET /api/v1/backtest (first poll ~0s later)", "expected": "running=true with progress or running=false when done", "observed": "running=false, progress=1.0, backtest_result populated — backtest completed very fast (<3s)" },
+        { "action": "Verify backtest_result populated", "expected": "Non-empty backtest_result", "observed": "backtest_result contains full strategy results with 7 trades and all performance metrics" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/backtest -> 200, running=false, progress=1.0, backtest_result populated",
+        "files": ["backend/strategy-backtest/VAL-BT-001-003-backtest-result.json"]
+      },
+      "issues": "Backtest completed so quickly that the running=true intermediate state was only visible in the POST response, not during GET polling. This is functionally correct but means progress tracking cannot be observed for this data size."
+    },
+    {
+      "id": "VAL-BT-003",
+      "title": "Backtest results contain performance metrics",
+      "status": "pass",
+      "steps": [
+        { "action": "Inspect backtest_result.strategy.chan_theory for required metrics", "expected": "All 8 metrics present and numeric", "observed": "profit_total=0.009293, profit_total_abs=9293.27, max_drawdown=-0.418272, sharpe=0.214803, sortino=0.276643, winrate=0.428571, trade_count=7, max_drawdown_abs=-698293.87 — all numeric, none null/NaN" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "All 8 required metrics present in backtest_result.strategy.chan_theory",
+        "files": ["backend/strategy-backtest/VAL-BT-001-003-backtest-result.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BT-004",
+      "title": "Daily P&L data for equity curve",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /api/v1/daily after backtest completion", "expected": "data array with entries containing date, abs_profit, rel_profit, starting_balance, trade_count; >= 30 entries", "observed": "data array with 94 entries, all required fields present. First entry: 2025-11-03 with 0 profit. Last entry: 2026-03-24 with abs_profit=9293.27" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/daily -> 200, 94 entries with all required fields",
+        "files": ["backend/strategy-backtest/VAL-BT-004-daily.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BT-005",
+      "title": "Trade history from backtest",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /api/v1/trades after backtest completion", "expected": "trades array with >= 1 entry, each with pair, open_date, close_date, open_rate, close_rate, profit_abs, profit_ratio", "observed": "trades array with 7 entries. First trade: pair=000630, open_date=2025-12-02, close_date=2026-03-24, open_rate=5.41, close_rate=5.81, profit_abs=21651.65, profit_ratio=0.072241" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/trades -> 200, 7 trades with all required fields",
+        "files": ["backend/strategy-backtest/VAL-BT-005-trades.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BT-006",
+      "title": "Backtest history persistence",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /api/v1/backtest/history after backtest completion", "expected": "Array with >= 1 entry including strategy, filename, backtest_start_ts, backtest_end_ts", "observed": "Array with 129 entries (previous runs accumulated). First entry: strategy=chan_theory, filename=backtest-result-chan_theory-2025-11-03-2026-03-24-129.json, backtest_start_ts=1762099200000, backtest_end_ts=1774281600000" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (API test)",
+        "network": "GET /api/v1/backtest/history -> 200, 129 entries with all required fields",
+        "files": ["backend/strategy-backtest/VAL-BT-006-history.json"]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Backtest completes almost instantly for the given timerange/strategy, making it impossible to observe the running=true intermediate state via polling. The running=true was only visible in the POST response.",
+      "resolved": true,
+      "resolution": "Validated running=true from POST response and running=false with populated results from GET response. Both states were observed.",
+      "affectedAssertions": ["VAL-BT-002"]
+    },
+    {
+      "description": "Backtest history endpoint returned 129 entries from previous test runs, indicating history accumulates across runs without cleanup.",
+      "resolved": true,
+      "resolution": "Not a blocker — the assertion only requires >= 1 entry. History accumulation is expected behavior.",
+      "affectedAssertions": ["VAL-BT-006"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 8 assertions: all 8 passed. Strategy listing returns chan_theory, strategy details include all required fields (name, timeframe, code, params). Backtest starts successfully, completes with 7 trades, and all performance metrics (profit_total, max_drawdown, sharpe, sortino, winrate, trade_count, etc.) are numeric. Daily P&L has 94 entries, trades endpoint returns 7 trades with full details, and backtest history persists across runs."
+}

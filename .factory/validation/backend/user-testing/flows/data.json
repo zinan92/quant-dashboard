@@ -1,0 +1,150 @@
+{
+  "groupId": "data",
+  "testedAt": "2026-03-25T12:00:00Z",
+  "isolation": {
+    "apiBaseUrl": "http://localhost:8020",
+    "authCredentials": "admin:admin (HTTP Basic Auth)",
+    "projectDir": "/Users/wendy/work/trading-co/quant-dashboard"
+  },
+  "toolsUsed": ["curl", "python3 (data layer direct access)"],
+  "assertions": [
+    {
+      "id": "VAL-DATA-001",
+      "title": "Stock K-line data from market.db",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/v1/token/login with admin:admin Basic Auth",
+          "expected": "200 with access_token",
+          "observed": "200 with access_token (168 chars)"
+        },
+        {
+          "action": "GET /api/v1/pair_candles?pair=000001&timeframe=1d&limit=100",
+          "expected": "200 with non-empty OHLCV data",
+          "observed": "200 with 100 OHLCV rows. Columns: [date, open, high, low, close, volume]. Data contains ms-epoch timestamps and numeric OHLCV values."
+        },
+        {
+          "action": "Direct data layer: MarketReader.get_stock_klines('000001')",
+          "expected": "Non-empty DataFrame with OHLCV columns",
+          "observed": "122 rows with columns [date, open, high, low, close, volume, amount, dif, dea, macd]. Date range: 2025-08-06 to 2026-02-03."
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl test)",
+        "network": "GET /api/v1/pair_candles?pair=000001&timeframe=1d&limit=100 -> 200",
+        "files": ["backend/data/VAL-DATA-001-pair-candles-000001.json"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DATA-002",
+      "title": "CSI 300 index data available",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Check index_cache.db existence at quant-dashboard/data/index_cache.db",
+          "expected": "Cache file exists with CSI 300 data",
+          "observed": "index_cache.db did not exist initially. After IndexFetcher() init, it was created with empty schema."
+        },
+        {
+          "action": "Call IndexFetcher.get_csi300() to read cached data",
+          "expected": "DataFrame with at least 60 CSI 300 data points",
+          "observed": "Empty DataFrame (0 rows). fetch_and_store() has never been called to populate the cache."
+        },
+        {
+          "action": "Check market.db for CSI 300 index data",
+          "expected": "CSI 300 (399300.SZ or 000300.SH) in klines table",
+          "observed": "NOT present. Available indices: 000001.SH, 399001.SZ, 399006.SZ, 000688.SH, 899050.BJ. CSI 300 is not in market.db."
+        },
+        {
+          "action": "Check API for CSI 300 data via pair_candles",
+          "expected": "Some endpoint serves CSI 300 data",
+          "observed": "pair_candles only calls get_stock_klines (filters symbol_type='STOCK'). No API endpoint serves index data from IndexFetcher cache. Tried pair codes: 399300, 000300, 399300.SZ, 000300.SH — all returned 404."
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl test)",
+        "network": "GET /api/v1/pair_candles?pair=399300&timeframe=1d -> 404, GET /api/v1/pair_candles?pair=000300&timeframe=1d -> 404",
+        "files": ["backend/data/VAL-DATA-002-csi300-cache-empty.txt"]
+      },
+      "issues": "CSI 300 data is not available in the system. The IndexFetcher class exists and can fetch from AkShare, but fetch_and_store() has never been executed to populate the cache. Additionally, no API endpoint exposes cached index data. The data layer code is implemented but the data pipeline has not been run."
+    },
+    {
+      "id": "VAL-DATA-003",
+      "title": "ChiNext index data accessible",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Direct data layer: MarketReader.get_index_klines('399006.SZ')",
+          "expected": "Non-empty DataFrame with OHLCV fields",
+          "observed": "94 rows with columns [date, open, high, low, close, volume, amount, dif, dea, macd]. Date range: 2025-11-03 to 2026-03-24. OHLCV data verified present and numeric."
+        },
+        {
+          "action": "Verify data layer has get_index_klines method",
+          "expected": "Method exists and queries symbol_type='INDEX'",
+          "observed": "MarketReader.get_index_klines() correctly queries klines table with symbol_type='INDEX' filter. Returns full OHLCV data."
+        },
+        {
+          "action": "Check if API endpoint serves ChiNext data",
+          "expected": "Some endpoint returns ChiNext data",
+          "observed": "pair_candles endpoint only uses get_stock_klines, NOT get_index_klines. No API endpoint currently exposes index data. However, the assertion specifies 'accessible via the data layer' which passes."
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (data layer test)",
+        "network": "n/a (tested via data layer, not API)",
+        "files": ["backend/data/VAL-DATA-003-chinext-data.txt"]
+      },
+      "issues": "Note: ChiNext data (399006.SZ, 94 rows) is accessible via MarketReader.get_index_klines() but is NOT exposed through any REST API endpoint. The pair_candles endpoint only queries STOCK type. This is a gap for API consumers but the assertion specifically says 'accessible via the data layer' which is satisfied."
+    },
+    {
+      "id": "VAL-DATA-004",
+      "title": "Available pairs endpoint",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/v1/token/login with admin:admin Basic Auth",
+          "expected": "200 with access_token",
+          "observed": "200 with access_token"
+        },
+        {
+          "action": "GET /api/v1/available_pairs",
+          "expected": "200 with non-empty list of tradeable pairs",
+          "observed": "200 with response containing length=422, pairs array of 422 stock codes, and pair_interval array of 422 entries each with pair and timeframe='1d'. First pair: '000001', last pair: '903126'."
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl test)",
+        "network": "GET /api/v1/available_pairs -> 200",
+        "files": ["backend/data/VAL-DATA-004-available-pairs.json"]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "pair_candles endpoint only supports STOCK symbol type, not INDEX. To query index data (ChiNext, CSI 300), the data layer must be used directly. No API endpoint exposes index K-line data.",
+      "resolved": false,
+      "resolution": "Used MarketReader.get_index_klines() directly for VAL-DATA-003",
+      "affectedAssertions": ["VAL-DATA-002", "VAL-DATA-003"]
+    },
+    {
+      "description": "Pair format for pair_candles is bare code ('000001') not suffixed ('000001.SZ'). First attempt with '000001.SZ' returned 404.",
+      "resolved": true,
+      "resolution": "Checked available_pairs endpoint to discover correct format, then used bare code",
+      "affectedAssertions": ["VAL-DATA-001"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "CSI 300 (VAL-DATA-002): IndexFetcher.fetch_and_store() has never been executed, so index_cache.db has no data. The AkShare fetch pipeline needs to be run at least once to populate the cache. This is a missing data initialization step, not a code bug.",
+      "affectedAssertions": ["VAL-DATA-002"],
+      "quickFixAttempted": "Verified index_cache.db schema is created correctly by IndexFetcher init. The code is functional but the data fetch hasn't been triggered."
+    }
+  ],
+  "summary": "Tested 4 assertions: 3 passed (VAL-DATA-001, VAL-DATA-003, VAL-DATA-004), 1 failed (VAL-DATA-002: CSI 300 cache empty — fetch_and_store never called, no API endpoint for index data)."
+}

@@ -1,0 +1,95 @@
+{
+  "groupId": "strategy-engine",
+  "testedAt": "2026-03-25T11:30:00Z",
+  "isolation": {
+    "projectDir": "/Users/wendy/work/trading-co/quant-dashboard",
+    "testingTool": "pytest"
+  },
+  "toolsUsed": ["pytest"],
+  "assertions": [
+    {
+      "id": "VAL-STRAT-003",
+      "title": "Chan Theory signal generation correctness",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Located test file tests/test_chan_theory.py",
+          "expected": "Test file exists with comprehensive Chan Theory tests",
+          "observed": "Found tests/test_chan_theory.py with 48 test cases across 11 test classes"
+        },
+        {
+          "action": "Run pytest tests/test_chan_theory.py -v --tb=short",
+          "expected": "All tests pass covering fractal detection, MACD divergence, buy/sell signals",
+          "observed": "48 passed in 0.28s — all tests pass"
+        },
+        {
+          "action": "Verify fractal detection tests (TestFractalDetection: 9 tests)",
+          "expected": "Top/bottom fractal detection works on known patterns",
+          "observed": "All 9 fractal detection tests passed: simple top fractal, simple bottom fractal, multiple fractals zigzag, no fractals in flat data, monotonic up/down, too few bars, bar with both top and bottom, correct date"
+        },
+        {
+          "action": "Verify pen construction tests (TestPenConstruction: 7 tests)",
+          "expected": "Pen construction from fractals works correctly",
+          "observed": "All 7 pen construction tests passed: simple pen, rejection if too close, same-type keeps more extreme, multiple pens zigzag, direction down, empty/single fractal edge cases"
+        },
+        {
+          "action": "Verify hub identification tests (TestHubIdentification: 3 tests)",
+          "expected": "Hub identification from overlapping pens works",
+          "observed": "All 3 hub identification tests passed: three overlapping pens form hub, non-overlapping no hub, fewer than min pens no hub"
+        },
+        {
+          "action": "Verify MACD divergence detection tests (TestMACDDivergence: 3 tests)",
+          "expected": "MACD divergence detection identifies top and bottom divergences",
+          "observed": "All 3 MACD divergence tests passed: top divergence detected, bottom divergence detected, no divergence when MACD grows"
+        },
+        {
+          "action": "Verify MACD area computation tests (TestMACDArea: 4 tests)",
+          "expected": "MACD area computation helper works correctly",
+          "observed": "All 4 area tests passed: positive area, negative area uses absolute, mixed area, invalid range returns zero"
+        },
+        {
+          "action": "Verify buy signal generation tests (TestBuySignalGeneration: 2 tests)",
+          "expected": "Buy signals generated on bottom-divergence patterns",
+          "observed": "All 2 buy signal tests passed: buy_1 bottom divergence at downtrend hub, known bottom divergence produces buy signal"
+        },
+        {
+          "action": "Verify sell signal generation tests (TestSellSignalGeneration: 1 test)",
+          "expected": "Sell signals generated on top-divergence patterns",
+          "observed": "Sell signal test passed: known top divergence produces sell signal"
+        },
+        {
+          "action": "Verify no-signal / hub oscillation tests (TestNoSignalCase: 4 tests)",
+          "expected": "No signals on flat/sideways data, empty/short data",
+          "observed": "All 4 no-signal tests passed: flat data no signals, sideways hub oscillation, empty dataframe, too few bars"
+        },
+        {
+          "action": "Verify integration with real market data (TestWithRealData: 1 test)",
+          "expected": "Strategy runs on real stock 000001 data from market.db",
+          "observed": "Real data test passed: strategy generates valid Signal objects from live market data"
+        }
+      ],
+      "evidence": {
+        "pytestOutput": "backend/strategy-engine/VAL-STRAT-003-pytest-output.txt",
+        "testSummary": "48 passed in 0.28s",
+        "testBreakdown": {
+          "TestFractalDetection": "9 passed",
+          "TestPenConstruction": "7 passed",
+          "TestHubIdentification": "3 passed",
+          "TestMACDDivergence": "3 passed",
+          "TestMACDArea": "4 passed",
+          "TestBuySignalGeneration": "2 passed",
+          "TestSellSignalGeneration": "1 passed",
+          "TestNoSignalCase": "4 passed",
+          "TestStrategyLoading": "8 passed",
+          "TestSignalObject": "2 passed",
+          "TestGenerateSignalsFormat": "4 passed",
+          "TestWithRealData": "1 passed"
+        }
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 1 assertion: 1 passed. VAL-STRAT-003 confirmed — all 48 Chan Theory pytest tests pass, covering fractal detection (9 tests), pen construction (7 tests), hub identification (3 tests), MACD divergence detection (3 tests), MACD area computation (4 tests), buy signal generation (2 tests), sell signal generation (1 test), no-signal scenarios (4 tests), strategy loading (8 tests), signal objects (2 tests), signal format (4 tests), and real market data integration (1 test)."
+}
