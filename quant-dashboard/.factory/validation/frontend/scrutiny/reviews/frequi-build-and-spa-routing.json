@@ -1,0 +1,45 @@
+{
+  "featureId": "frequi-build-and-spa-routing",
+  "reviewedAt": "2026-03-25T05:30:00.000Z",
+  "commitId": "95d9d4b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation correctly covers all feature requirements: FreqUI is cloned and built, FastAPI serves static files with proper SPA fallback, API routes take precedence over the catch-all, CORS is configured, and comprehensive tests verify the routing behavior. The worker followed the skill procedure faithfully, including agent-browser verification of login, dashboard, backtest page, strategy dropdown, and deep link navigation. 14 well-structured tests cover API precedence, SPA fallback for deep links, static asset MIME types, and route ordering. The code is clean and well-commented.",
+    "issues": [
+      {
+        "file": "quant-dashboard/tests/test_spa_routing.py",
+        "line": 107,
+        "severity": "non_blocking",
+        "description": "Tests hardcode build-specific asset hashes (index-BYHE955S.js, index-BMfDoxa3.css). If FreqUI is rebuilt, these hashes change. The tests use `if resp.status_code == 200:` guards so they won't fail, but the assertions silently become no-ops. Consider dynamically discovering asset filenames from frontend/dist/assets/ or from index.html parsing."
+      },
+      {
+        "file": "quant-dashboard/app/main.py",
+        "line": 113,
+        "severity": "non_blocking",
+        "description": "The SPA fallback's static file detection (`if '.' in full_path.split('/')[-1]`) could theoretically serve any file under frontend/dist/ that matches a dotted filename. While Starlette normalizes path parameters (stripping '..'), adding an explicit check that the resolved path is within frontend_dist would be a defense-in-depth improvement. In practice this is safe because FastAPI strips path traversal components."
+      },
+      {
+        "file": "quant-dashboard/frontend/",
+        "line": 0,
+        "severity": "non_blocking",
+        "description": "The entire FreqUI source tree (252 files, ~40K lines) was committed to git, including e2e tests, GitHub workflows, Docker configs, and pnpm-lock.yaml. Only the source files needed for build are necessary; the dist/ directory (build output) is correctly excluded by .gitignore. Consider adding frontend source files to .gitignore and using a git submodule instead, or at minimum excluding frontend/e2e/, frontend/.github/, frontend/docker/ from the commit."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The root .gitignore has a `dist/` pattern that excludes frontend/dist/ from git. This means after a fresh clone, `pnpm install && pnpm run build` must be run before the server can serve FreqUI. The root .factory/services.yaml documents this via `build_frontend` command, but AGENTS.md doesn't explicitly mention this prerequisite. Future workers modifying the backend might not realize they need to build the frontend first.",
+      "evidence": "Root .gitignore line: `dist/`. git ls-files quant-dashboard/frontend/dist/ returns empty. Root .factory/services.yaml has build_frontend command. AGENTS.md 'FreqUI Setup' section says 'Clone, build with pnpm, serve static output from FastAPI' but doesn't mention this is required after every fresh clone."
+    },
+    {
+      "area": "conventions",
+      "observation": "Worker created a quant-dashboard/.factory/services.yaml that duplicates information already in the root .factory/services.yaml. Both define the same backend start/stop/healthcheck commands. Having two services.yaml files could lead to divergence.",
+      "evidence": "Root .factory/services.yaml has api service on port 8020 with same start command. quant-dashboard/.factory/services.yaml has backend service on port 8020 with identical start command."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation correctly builds FreqUI, configures SPA routing with proper API route precedence, adds CORS, and includes 14 comprehensive tests. All tests pass. The worker followed the skill procedure completely, including thorough agent-browser verification. Three non-blocking issues noted: hardcoded build hashes in tests, lack of path containment check in SPA fallback (mitigated by Starlette), and committing full FreqUI source tree. Two shared state observations about .gitignore dist/ exclusion and duplicate services.yaml files."
+}

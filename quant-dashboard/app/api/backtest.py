@@ -580,7 +580,7 @@ def get_market_change(
     # Calculate cumulative percentage change from start
     # market_change = (current_close - start_close) / start_close
     start_close = df.iloc[0]["close"]
-    
+
     data = []
     for _, row in df.iterrows():
         timestamp_ms = _date_to_ms_epoch(row["date"])

@@ -1,0 +1,49 @@
+{
+  "milestone": "frontend",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x", "exitCode": 0, "detail": "305 passed in 13.11s" },
+    "typecheck": { "passed": true, "command": "cd quant-dashboard && python3 -m mypy app/ src/ --ignore-missing-imports", "exitCode": 0, "detail": "Success: no issues found in 23 source files" },
+    "lint": { "passed": true, "command": "cd quant-dashboard && python3 -m ruff check src/ app/", "exitCode": 0, "detail": "All checks passed (after fixing 1 W293 whitespace issue)" }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Created .factory/library/frequi-compat.md documenting FreqUI polling endpoints (including sysinfo), show_config required fields (including timerange), known display quirks, CSI 300 data seeding requirement, and frontend build requirement after fresh clone.",
+      "sourceFeature": "frequi-backtest-integration, benchmark-comparison, frequi-build-and-spa-routing"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Update 'API Compatibility Requirements' section: add /sysinfo to the list of FreqUI polling endpoints (alongside /whitelist, /blacklist, /status, /profit). Also document that show_config must include a 'timerange' field (FreqUI's TimeRangeSelect.vue calls .split() on it).",
+      "evidence": "Feature frequi-backtest-integration discovered both issues via browser console errors. Worker had to add /api/v1/sysinfo endpoint and timerange field to show_config (commit bfca54a) to eliminate JS errors.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add convention: data-layer objects (MarketReader, BacktestStore, IndexFetcher) should be instantiated as module-level singletons in API endpoint files, not re-created per request. This matches the existing pattern in backtest.py and pairs.py.",
+      "evidence": "Feature benchmark-comparison used per-request IndexFetcher() instantiation with lazy import inside function body, while existing code uses module-level _store = BacktestStore() and _reader = MarketReader(). Inconsistency flagged in reviews for both frequi-backtest-integration and benchmark-comparison.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Duplicate services.yaml in quant-dashboard/.factory/ vs root .factory/",
+      "reason": "The quant-dashboard-level services.yaml was likely created by an early worker before the root-level one existed. Not a systemic issue — the root .factory/services.yaml is the canonical one used by the mission system."
+    },
+    {
+      "observation": "dist/ excluded by .gitignore means build step required after fresh clone",
+      "reason": "Already documented in .factory/services.yaml via build_frontend command, and now also documented in the new .factory/library/frequi-compat.md. Not a gap."
+    }
+  ],
+  "previousRound": null
+}

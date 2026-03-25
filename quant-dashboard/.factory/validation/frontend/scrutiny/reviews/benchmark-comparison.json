@@ -1,0 +1,45 @@
+{
+  "featureId": "benchmark-comparison",
+  "reviewedAt": "2026-03-25T05:10:00.000Z",
+  "commitId": "b17cb74",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The market_change endpoint is correctly implemented with proper error handling for invalid filenames and nonexistent runs. The response schema matches the feature spec ({columns, data} with cumulative percentage change). Pair_candles already supports index data for CSI 300 and ChiNext — the worker correctly verified this rather than reimplementing. Tests cover success, invalid filename, and missing run cases. Two non-blocking issues found: potential division-by-zero if start_close were ever 0 (impossible for CSI 300 in practice), and IndexFetcher is instantiated per-request rather than using a module-level singleton like _store and _reader.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 587,
+        "severity": "non_blocking",
+        "description": "Division by zero risk: `pct_change = (row['close'] - start_close) / start_close` would raise ZeroDivisionError if start_close is 0. Practically impossible for CSI 300 but violates defensive coding. A guard clause like `if start_close == 0: raise HTTPException(...)` would be safer."
+      },
+      {
+        "file": "quant-dashboard/app/api/backtest.py",
+        "line": 548,
+        "severity": "non_blocking",
+        "description": "IndexFetcher() is instantiated inside the request handler (lazy import + construction on every call). Other data layer objects (_store, _reader) are module-level singletons. Inconsistent pattern — should either be a singleton or document why per-request construction is preferred."
+      },
+      {
+        "file": "quant-dashboard/seed_csi300.py",
+        "line": 0,
+        "severity": "non_blocking",
+        "description": "seed_csi300.py is untracked (not committed). This is the script needed to populate CSI 300 data into index_cache.db. Without it, the market_change endpoint returns empty data. Should be committed as part of the feature or documented as a required setup step."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker used a lazy import inside the function body (`from src.data_layer.index_fetcher import IndexFetcher` at line 548) and instantiates IndexFetcher per-request, while existing patterns use module-level imports and singletons (_store = BacktestStore(), _reader = MarketReader()). AGENTS.md does not specify a convention for data-layer object lifecycle.",
+      "evidence": "quant-dashboard/app/api/backtest.py:22-23 uses module-level `_store = BacktestStore()` and `_reader = MarketReader()`, but line 548 does `from src.data_layer.index_fetcher import IndexFetcher` inside the function and line 571 does `index_fetcher = IndexFetcher()` per request."
+    },
+    {
+      "area": "knowledge",
+      "observation": "CSI 300 data requires pre-seeding via AkShare before the market_change endpoint can return useful data. A seed_csi300.py script was created but not committed. This setup requirement is not documented in .factory/library/environment.md or AGENTS.md.",
+      "evidence": "quant-dashboard/seed_csi300.py (untracked) fetches and stores CSI 300 data. The endpoint returns empty data if index_cache.db is not populated. environment.md mentions AkShare for CSI 300 but does not document the seeding step."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "The benchmark-comparison feature passes review. The market_change endpoint correctly returns CSI 300 benchmark data for backtest date ranges in FreqTrade-compatible format. The pair_candles endpoint already supports index K-lines for CSI 300 and ChiNext. Three non-blocking issues found: (1) theoretical division-by-zero if start_close is 0, (2) inconsistent IndexFetcher lifecycle vs other singletons, (3) seed_csi300.py not committed. Feature requirement (4) about virtual strategy was acknowledged but deferred, which is acceptable given 'consider' language. All tests pass, manual verification via curl and agent-browser confirmed the endpoint works correctly."
+}

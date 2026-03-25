@@ -1,0 +1,61 @@
+{
+  "featureId": "frequi-backtest-integration",
+  "reviewedAt": "2026-03-25T05:10:00.000Z",
+  "commitId": "bfca54a",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The worker successfully completed the FreqUI integration verification and fixed two API compatibility issues. Commit bfca54a adds a /api/v1/sysinfo endpoint (returning CPU/RAM via psutil) and a timerange field to show_config. Both fixes directly address JavaScript errors observed in the browser console (TypeError from TimeRangeSelect.vue calling .split() on undefined, and 404s from sysinfo polling). The code is clean, follows existing patterns (router structure, auth dependency injection, dict returns for FreqTrade compat), and the fixes are minimal and targeted. A second commit b17cb74 (market_change endpoint) was also produced in this session but belongs to a different feature scope. The interactive verification was thorough: 10 browser checks covering login, strategy selection, backtest execution, trade table, charts, and console error verification. All 302 tests pass. Two non-blocking discovered issues (undefined display values and 404 polling endpoints) are accurately documented and don't block core functionality.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/api/system.py",
+        "line": 49,
+        "severity": "non_blocking",
+        "description": "psutil.cpu_percent(interval=1) is a blocking call that sleeps for 1 second to measure CPU. In a synchronous FastAPI endpoint, this blocks the event loop thread. For a single-user dashboard this is acceptable, but for production use it should be made async or use interval=None (returns cached value from last call). Low impact given the use case."
+      },
+      {
+        "file": "quant-dashboard/app/api/system.py",
+        "line": 45,
+        "severity": "non_blocking",
+        "description": "psutil is imported inside the function body rather than at module level. While this works and avoids import-time failure if psutil isn't installed, it's inconsistent with the rest of the codebase which uses top-level imports. Minor style nit."
+      },
+      {
+        "file": "quant-dashboard/app/api/system.py",
+        "line": 40,
+        "severity": "non_blocking",
+        "description": "The hardcoded timerange '20251103-20260324' in show_config will become stale over time. Ideally this would be dynamically computed from the available data range in market.db. However, for the current integration verification purpose, a static default is acceptable and matches what FreqUI needs to avoid the .split() TypeError."
+      },
+      {
+        "file": "quant-dashboard/app/api/system.py",
+        "line": 48,
+        "severity": "non_blocking",
+        "description": "FreqTrade's sysinfo response schema uses 'cpu_pct' as a list (one entry per CPU core) — e.g. [23.5, 12.0, ...]. Our implementation returns a single float. FreqUI may handle this gracefully, but it's a schema deviation. The worker verified no console errors from this, so it works in practice."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md documents that FreqUI polls /whitelist, /blacklist, /status, /profit on every refresh cycle and these must return valid responses. The worker discovered that /sysinfo is also polled by FreqUI and causes 404 errors. AGENTS.md should be updated to include /sysinfo in the list of required polling endpoints.",
+      "evidence": "Handoff interactiveChecks show 404 errors from sysinfo polling. Fix was to implement /api/v1/sysinfo endpoint (commit bfca54a). AGENTS.md only lists /whitelist, /blacklist, /status, /profit as required polling endpoints."
+    },
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md does not document that show_config must include a 'timerange' field. FreqUI's TimeRangeSelect.vue component calls .split() on this field, causing a TypeError when it's missing. This is a critical compatibility requirement that should be documented.",
+      "evidence": "Commit bfca54a adds timerange to show_config. Handoff browser check notes TypeError from TimeRangeSelect.vue calling .split() on undefined."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker discovered that FreqUI displays 'Tot Profit undefined' and 'N/A (undefinedx)' for some fields. This is likely related to stake_currency='CNY' handling or missing schema fields. This compatibility quirk should be documented in .factory/library/ so future workers know about it and can investigate/fix it.",
+      "evidence": "Handoff discoveredIssues[0]: 'Some backtest result fields show Tot Profit undefined and N/A (undefinedx) in UI.'"
+    },
+    {
+      "area": "knowledge",
+      "observation": "Worker's skillFeedback suggests documenting common FreqUI compatibility requirements (timerange field, sysinfo endpoint, runmode=webserver) in .factory/library/. This is a valid observation — these compatibility details are scattered across code and handoffs rather than being centrally documented.",
+      "evidence": "Handoff skillFeedback.suggestedChanges: 'Recommend documenting common FreqUI compatibility requirements (timerange field, sysinfo endpoint, runmode=webserver) in .factory/library/ for future reference'"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The frequi-backtest-integration feature successfully verifies end-to-end backtest flow through FreqUI. The worker navigated through login, strategy selection, backtest execution, and result visualization — confirming trade tables, charts, and performance metrics all render. Two API compatibility issues were discovered and fixed: (1) missing /sysinfo endpoint causing 404 polling errors, (2) missing timerange field in show_config causing a TypeError in TimeRangeSelect.vue. Code changes are minimal, clean, and follow existing patterns. All 302 tests pass. Non-blocking issues include a blocking psutil call, hardcoded timerange, and some 'undefined' display values in FreqUI — none of which block the core integration verification purpose of this feature."
+}
