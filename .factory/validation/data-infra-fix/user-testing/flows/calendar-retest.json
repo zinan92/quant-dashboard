@@ -1,0 +1,59 @@
+{
+  "groupId": "calendar-retest",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "testingTool": "shell (sqlite3, grep, read)",
+    "accessLevel": "read-only SELECTs"
+  },
+  "toolsUsed": ["sqlite3", "grep", "read"],
+  "assertions": [
+    {
+      "id": "VAL-INFRA-003",
+      "title": "Trade Calendar Covers 2021 Through 2026",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT MIN(date), MAX(date) FROM trade_calendar;\"",
+          "expected": "min <= '2021-01-04' and max >= '2026-12-31'",
+          "observed": "2021-01-01|2026-12-31 — min=2021-01-01 (<= 2021-01-04 ✓), max=2026-12-31 (>= 2026-12-31 ✓)"
+        },
+        {
+          "action": "Inspect update_trade_calendar() in src/services/calendar_updater.py",
+          "expected": "start_date covers 2021",
+          "observed": "start_date = \"20210101\" at line 66, end_date computed as next year's 1231"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "data-infra-fix/calendar-retest/VAL-INFRA-003-query-output.txt",
+        "codeInspection": "src/services/calendar_updater.py:60-70 — update_trade_calendar() uses start_date='20210101'"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INFRA-004",
+      "title": "Trade Calendar Contains Reasonable Row Count",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT COUNT(*) FROM trade_calendar WHERE is_trading_day = 1;\"",
+          "expected": "Count between 1,300 and 1,700",
+          "observed": "1454 — within acceptable range [1300, 1700] ✓"
+        },
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT COUNT(*) FROM trade_calendar;\"",
+          "expected": "Total rows including non-trading days",
+          "observed": "2191 total rows (1454 trading days + 737 non-trading days)"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "data-infra-fix/calendar-retest/VAL-INFRA-004-query-output.txt"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 2 passed. VAL-INFRA-003: trade_calendar spans 2021-01-01 to 2026-12-31 (code confirms start_date='20210101'). VAL-INFRA-004: 1,454 trading days in range [1300-1700]."
+}
