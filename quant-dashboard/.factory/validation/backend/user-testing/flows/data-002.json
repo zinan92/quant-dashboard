@@ -1,0 +1,45 @@
+{
+  "flowId": "data-002",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "assertions": {
+    "VAL-DATA-002": {
+      "status": "pass",
+      "evidence": "GET /api/v1/pair_candles?pair=000300.SH&timeframe=1d returned 200 with 65 data points (≥60 required). Response contains columns ['date','open','high','low','close','volume'] with all OHLCV fields present. No null values in any row. Timestamps in millisecond epoch format. Data spans 2025-11-03 to 2026-01-30.",
+      "details": "CSI 300 index data is available under symbol 000300.SH via the pair_candles endpoint. The data has 65 daily OHLCV records with no nulls. Symbol 399300.SZ returned 404 (not stored under that alias), but the validation contract specifies '399300.SZ or 000300.SH' — 000300.SH satisfies the requirement. Note: 000300.SH does not appear in /api/v1/available_pairs (which lists only stock pairs from market.db), but is accessible via pair_candles (served from index_cache.db).",
+      "steps": [
+        {
+          "action": "POST /api/v1/token/login with admin:admin",
+          "expected": "200 with access_token",
+          "observed": "200 with access_token and refresh_token"
+        },
+        {
+          "action": "GET /api/v1/pair_candles?pair=000300.SH&timeframe=1d",
+          "expected": "200 with CSI 300 daily OHLCV data, ≥60 data points",
+          "observed": "200 with 65 data points, columns: [date, open, high, low, close, volume], no nulls"
+        },
+        {
+          "action": "GET /api/v1/pair_candles?pair=399300.SZ&timeframe=1d",
+          "expected": "200 or 404 (alternative symbol)",
+          "observed": "404 - No data found for pair 399300.SZ"
+        },
+        {
+          "action": "Verify OHLCV columns present",
+          "expected": "date, open, high, low, close, volume columns",
+          "observed": "All 6 OHLCV columns present"
+        },
+        {
+          "action": "Verify data point count ≥ 60",
+          "expected": "≥60 data points",
+          "observed": "65 data points"
+        }
+      ],
+      "evidenceFiles": [
+        "backend/data-002/VAL-DATA-002-pair-candles-000300SH.json"
+      ]
+    }
+  },
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["curl"],
+  "summary": "Tested 1 assertion: VAL-DATA-002 passed. CSI 300 daily index data is available via pair_candles endpoint with symbol 000300.SH, returning 65 OHLCV data points (requirement: ≥60)."
+}

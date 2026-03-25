@@ -1,0 +1,39 @@
+{
+  "milestone": "backend",
+  "round": 2,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 27,
+    "passed": 27,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-AUTH-001", "VAL-AUTH-002", "VAL-AUTH-003", "VAL-AUTH-004", "VAL-AUTH-005", "VAL-AUTH-006",
+    "VAL-STRAT-001", "VAL-STRAT-002", "VAL-STRAT-003",
+    "VAL-BT-001", "VAL-BT-002", "VAL-BT-003", "VAL-BT-004", "VAL-BT-005", "VAL-BT-006",
+    "VAL-DATA-001", "VAL-DATA-002", "VAL-DATA-003", "VAL-DATA-004",
+    "VAL-COMPAT-001", "VAL-COMPAT-002", "VAL-COMPAT-003", "VAL-COMPAT-004", "VAL-COMPAT-005", "VAL-COMPAT-006",
+    "VAL-CROSS-005", "VAL-CROSS-006"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "testedThisRound": ["VAL-DATA-002"],
+  "previouslyPassed": [
+    "VAL-AUTH-001", "VAL-AUTH-002", "VAL-AUTH-003", "VAL-AUTH-004", "VAL-AUTH-005", "VAL-AUTH-006",
+    "VAL-STRAT-001", "VAL-STRAT-002", "VAL-STRAT-003",
+    "VAL-BT-001", "VAL-BT-002", "VAL-BT-003", "VAL-BT-004", "VAL-BT-005", "VAL-BT-006",
+    "VAL-DATA-001", "VAL-DATA-003", "VAL-DATA-004",
+    "VAL-COMPAT-001", "VAL-COMPAT-002", "VAL-COMPAT-003", "VAL-COMPAT-004", "VAL-COMPAT-005", "VAL-COMPAT-006",
+    "VAL-CROSS-005", "VAL-CROSS-006"
+  ],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Created initial user-testing.md with environment setup, API testing guide, CSI 300 data notes, concurrency settings, and flow validator guidance for API surface",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null,
+  "notes": "Re-run after fix-csi300-data-and-index-candles feature. VAL-DATA-002 was the only previously failed assertion. CSI 300 data now returns 65 data points via pair_candles endpoint (000300.SH). All 27 backend milestone assertions now pass."
+}
