@@ -39,4 +39,18 @@ def show_config(
         "state": "running",
         "dry_run": True,
         "trading_mode": "spot",
+        "timerange": "20251103-20260324",  # Default timerange for backtests
+    }
+
+
+@router.get("/sysinfo")
+def sysinfo(
+    _user: Annotated[str, Depends(get_current_user)],
+) -> dict:
+    """Return system information (CPU, RAM usage)."""
+    import psutil
+
+    return {
+        "cpu_pct": psutil.cpu_percent(interval=1),
+        "ram_pct": psutil.virtual_memory().percent,
     }
