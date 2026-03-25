@@ -11,8 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.backtest import router as backtest_router
 from app.api.compat import router as compat_router
+from app.api.pairs import router as pairs_router
+from app.api.profit import router as profit_router
 from app.api.strategy import router as strategy_router
 from app.api.system import router as system_router
+from app.api.trades import router as trades_router
 from app.auth import router as auth_router
 
 app = FastAPI(
@@ -35,6 +38,9 @@ app.include_router(auth_router)
 app.include_router(system_router)
 app.include_router(strategy_router)
 app.include_router(backtest_router)
+app.include_router(profit_router)
+app.include_router(trades_router)
+app.include_router(pairs_router)
 
 # Catch-all MUST be last so it only matches truly unimplemented endpoints
 app.include_router(compat_router)
