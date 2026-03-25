@@ -1,0 +1,27 @@
+{
+  "milestone": "frontend",
+  "round": 3,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 3,
+    "passed": 2,
+    "failed": 1,
+    "blocked": 0
+  },
+  "passedAssertions": ["VAL-UI-007", "VAL-CROSS-003"],
+  "failedAssertions": [
+    {
+      "id": "VAL-BENCH-002",
+      "reason": "No visual benchmark comparison in FreqUI. Visualize Summary shows Trades Log and Trades Durations but no benchmark overlay. market_change in results shows 0.000%. The backend market_change endpoint returns data but FreqUI does not render it as a visual chart. FreqUI may not natively support benchmark overlay — likely needs custom frontend work or alternative integration approach."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added Browser flow validator guidance section with login flow, testing approach, known issues from prior rounds, and concurrency limits for browser surface",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}

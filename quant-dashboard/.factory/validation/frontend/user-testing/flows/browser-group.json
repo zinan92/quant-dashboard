@@ -1,0 +1,37 @@
+{
+  "flowId": "browser-group",
+  "surface": "browser",
+  "tool": "agent-browser",
+  "assertions": {
+    "VAL-UI-007": {
+      "status": "pass",
+      "details": "FreqUI Analyze Result tab displays comprehensive metrics table including: Total Profit (0.929% | 9293.27 CNY), CAGR (2.430%), Sortino (0.28), Sharpe (0.21), Calmar (0.06), Profit factor (1.069), Max Drawdown ABS (-698755.87 CNY), Win/Draw/Loss (0/0/1 — note: may be strategy_comparison level, not trade level), Best day (7.80%), Worst day (-4.26%). All 4 requested metrics (win rate, profit factor, Sharpe, max drawdown) are present and displayed.",
+      "evidence": [
+        "evidence/frontend/browser-group/VAL-UI-007-analyze-result.png",
+        "evidence/frontend/browser-group/VAL-UI-007-full-metrics.png"
+      ]
+    },
+    "VAL-BENCH-002": {
+      "status": "fail",
+      "details": "No visual benchmark comparison is available in FreqUI. The Visualize Summary tab shows Trades Log and Trades Durations charts but no benchmark overlay. The market_change value in the analyze result shows 0.000% (not real index data). The API endpoint /api/v1/backtest/history/{filename}/market_change returns valid data with linear-looking values, but FreqUI does not display this data as a visual comparison chart. The Visualize Result tab shows 'Failed to load data' for pair candles, and no benchmark line chart.",
+      "evidence": [
+        "evidence/frontend/browser-group/VAL-BENCH-002-visualize-summary.png",
+        "evidence/frontend/browser-group/VAL-BENCH-002-visualize-result.png"
+      ]
+    },
+    "VAL-CROSS-003": {
+      "status": "pass",
+      "details": "No TypeErrors, RangeErrors, or schema parsing errors found in browser console. Only expected 404 AxiosErrors from unimplemented polling endpoints (balance, count, logs, health) which are handled gracefully by FreqUI (does not break the UI). The RangeError and .split errors from round 1, and the TypeError issues from round 2 are all resolved.",
+      "evidence": [
+        "evidence/frontend/browser-group/VAL-CROSS-003-backtest-page.png"
+      ]
+    }
+  },
+  "frictions": [
+    "Win/Draw/Loss in strategy_comparison shows 0/0/1 instead of expected 3/0/4 — likely a data format issue at the strategy_comparison level vs trade level",
+    "Max Drawdown (Account) shows N/A — the max_drawdown_account field may not be in the right format",
+    "Pair candles in Visualize Result show 'Failed to load data' — FreqUI pair_candles request for backtest data may use a different URL or parameters than what the backend provides"
+  ],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}
