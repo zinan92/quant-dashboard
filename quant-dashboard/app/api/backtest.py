@@ -524,3 +524,70 @@ def _extract_run_id_from_filename(filename: str) -> int | None:
             return int(run["id"])
 
     return None
+
+
+@router.get("/backtest/history/{filename}/market_change")
+def get_market_change(
+    filename: str,
+    _user: Annotated[str, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get benchmark market performance for the same period as a backtest.
+
+    Given a backtest filename, returns the market performance data for the
+    same date range. Uses CSI 300 (000300.SH) as the primary benchmark index.
+
+    Returns:
+        {
+            "columns": ["date", "market_change"],
+            "data": [[timestamp_ms, pct_change], ...]
+        }
+
+    The pct_change values show the cumulative percentage change from the
+    backtest start date (normalized to 0 at start).
+    """
+    from src.data_layer.index_fetcher import IndexFetcher
+
+    # Extract run_id from filename
+    run_id = _extract_run_id_from_filename(filename)
+    if run_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cannot parse filename: {filename}",
+        )
+
+    # Load the backtest run to get date range
+    run = _store.get_run(run_id)
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Backtest run not found: {filename}",
+        )
+
+    start_date = run["start_date"]
+    end_date = run["end_date"]
+
+    # Fetch CSI 300 index data for the same period
+    index_fetcher = IndexFetcher()
+    df = index_fetcher.get_csi300(start_date=start_date, end_date=end_date)
+
+    if df.empty:
+        # Return empty data if no benchmark data available
+        return {
+            "columns": ["date", "market_change"],
+            "data": [],
+        }
+
+    # Calculate cumulative percentage change from start
+    # market_change = (current_close - start_close) / start_close
+    start_close = df.iloc[0]["close"]
+    
+    data = []
+    for _, row in df.iterrows():
+        timestamp_ms = _date_to_ms_epoch(row["date"])
+        pct_change = (row["close"] - start_close) / start_close
+        data.append([timestamp_ms, round(pct_change, 6)])
+
+    return {
+        "columns": ["date", "market_change"],
+        "data": data,
+    }

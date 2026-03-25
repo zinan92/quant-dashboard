@@ -443,3 +443,61 @@ class TestFreqTradeSchemaCompliance:
         """Progress value is between 0 and 1."""
         data = _start_and_wait_for_backtest(timerange="20251201-20251231")
         assert 0.0 <= data["progress"] <= 1.0
+
+
+class TestMarketChangeEndpoint:
+    """Tests for GET /api/v1/backtest/history/{filename}/market_change."""
+
+    def test_market_change_returns_benchmark_data(self) -> None:
+        """Market change endpoint returns benchmark performance data."""
+        _reset_backtest()
+        
+        # Start and complete a backtest
+        data = _start_and_wait_for_backtest(timerange="20251201-20251231")
+        assert data["status"] == "completed"
+        
+        # Get the backtest history to find the filename
+        history_resp = client.get("/api/v1/backtest/history", headers=_auth_headers())
+        assert history_resp.status_code == 200
+        history = history_resp.json()
+        assert len(history) > 0
+        
+        filename = history[0]["filename"]
+        
+        # Get market change data
+        market_resp = client.get(
+            f"/api/v1/backtest/history/{filename}/market_change",
+            headers=_auth_headers(),
+        )
+        assert market_resp.status_code == 200
+        
+        market_data = market_resp.json()
+        assert "columns" in market_data
+        assert "data" in market_data
+        assert market_data["columns"] == ["date", "market_change"]
+        
+        # Data should be a list of [timestamp, pct_change] pairs
+        if len(market_data["data"]) > 0:
+            first_entry = market_data["data"][0]
+            assert len(first_entry) == 2
+            assert isinstance(first_entry[0], int)  # timestamp in ms
+            assert isinstance(first_entry[1], (int, float))  # percentage change
+            
+            # First entry should have 0% change (baseline)
+            assert abs(first_entry[1]) < 0.001
+
+    def test_market_change_invalid_filename(self) -> None:
+        """Market change endpoint returns 404 for invalid filename."""
+        resp = client.get(
+            "/api/v1/backtest/history/invalid-filename/market_change",
+            headers=_auth_headers(),
+        )
+        assert resp.status_code == 404
+
+    def test_market_change_nonexistent_run(self) -> None:
+        """Market change endpoint returns 404 for nonexistent run."""
+        resp = client.get(
+            "/api/v1/backtest/history/backtest-result-chan_theory-2025-01-01-2025-01-31-99999.json/market_change",
+            headers=_auth_headers(),
+        )
+        assert resp.status_code == 404
