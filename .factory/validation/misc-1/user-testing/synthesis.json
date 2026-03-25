@@ -1,0 +1,17 @@
+{
+  "milestone": "misc-1",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "notes": "The misc-1 milestone contains only the misc-lint-typecheck-cleanup feature which has an empty fulfills array. No validation contract assertions are mapped to this milestone, so there are no testable assertions. All pending assertions (VAL-UI-*, VAL-BENCH-*, VAL-CROSS-*) belong to the frontend milestone."
+}
