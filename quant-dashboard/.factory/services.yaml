@@ -1,0 +1,10 @@
+services:
+  backend:
+    start: cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8020
+    stop: lsof -ti :8020 | xargs kill
+    healthcheck: curl -sf http://localhost:8020/api/v1/ping
+    port: 8020
+    depends_on: []
+
+commands:
+  test: cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m pytest tests/ -v

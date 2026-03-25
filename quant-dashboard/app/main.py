@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.backtest import router as backtest_router
 from app.api.compat import router as compat_router
@@ -82,3 +85,46 @@ app.include_router(pairs_router)
 
 # Catch-all MUST be last so it only matches truly unimplemented endpoints
 app.include_router(compat_router)
+
+# Static files and SPA routing
+# CRITICAL: Mount static files AFTER API routes so /api/v1/* takes precedence
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+
+if frontend_dist.exists():
+    # Mount static assets (JS, CSS, images, etc.)
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(frontend_dist / "assets")),
+        name="static-assets",
+    )
+
+    # Serve favicon and other root-level static files
+    @app.get("/favicon.ico")
+    async def favicon():
+        """Serve favicon from frontend dist."""
+        return FileResponse(frontend_dist / "favicon.ico")
+
+    # SPA fallback: serve index.html for all non-API, non-static routes
+    # This must be LAST so API routes take precedence
+    @app.get("/{full_path:path}")
+    async def spa_fallback(request: Request, full_path: str):
+        """Serve index.html for SPA deep links.
+
+        All routes NOT matching:
+        - /api/v1/* (API routes)
+        - /assets/* (static assets)
+        - Static file extensions (.js, .css, .png, .ico, .svg, .woff, .woff2, .json)
+
+        Return index.html to enable client-side routing.
+        """
+        # If path looks like a static file, try to serve it
+        if "." in full_path.split("/")[-1]:
+            file_path = frontend_dist / full_path
+            if file_path.exists() and file_path.is_file():
+                return FileResponse(file_path)
+
+        # Otherwise, serve index.html for SPA routing
+        return FileResponse(frontend_dist / "index.html")
+else:
+    logger.warning(f"Frontend dist directory not found at {frontend_dist}")
+    logger.warning("Static file serving and SPA routing disabled")
