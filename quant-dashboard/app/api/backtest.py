@@ -148,7 +148,51 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
             "fee_close": 0.0013,  # commission + stamp tax
             "open_timestamp": _date_to_ms_epoch(t.entry_date),
             "close_timestamp": _date_to_ms_epoch(t.exit_date),
+            "exit_reason": t.exit_reason,  # Required by FreqUI
+            "sell_reason": t.exit_reason,  # Deprecated field, but some FreqUI versions may check it
         })
+
+    # Build exit_reason_summary (aggregate profit/loss by exit reason)
+    exit_reason_stats: dict[str, dict[str, Any]] = {}
+    for t in result.trades:
+        reason = t.exit_reason
+        if reason not in exit_reason_stats:
+            exit_reason_stats[reason] = {
+                "trades": 0,
+                "wins": 0,
+                "losses": 0,
+                "draws": 0,
+                "profit_mean": 0.0,
+                "profit_mean_pct": 0.0,
+                "profit_total_abs": 0.0,
+                "profit_total": 0.0,
+                "profit_total_pct": 0.0,
+            }
+        stats = exit_reason_stats[reason]
+        stats["trades"] += 1
+        stats["profit_total_abs"] += t.pnl
+        stats["profit_total"] += t.pnl_pct
+        if t.pnl > 0:
+            stats["wins"] += 1
+        elif t.pnl < 0:
+            stats["losses"] += 1
+        else:
+            stats["draws"] += 1
+    
+    # Calculate means
+    exit_reason_summary = []
+    for reason, stats in exit_reason_stats.items():
+        if stats["trades"] > 0:
+            stats["profit_mean"] = stats["profit_total"] / stats["trades"]
+            stats["profit_mean_pct"] = stats["profit_mean"] * 100
+            stats["profit_total_pct"] = stats["profit_total"] * 100
+            stats["winrate"] = stats["wins"] / stats["trades"] if stats["trades"] > 0 else 0.0
+        exit_reason_summary.append(stats)
+
+    # Build timerange in YYYYMMDD-YYYYMMDD format (required by FreqUI TimeRangeSelect.vue)
+    timerange_start = result.start_date.replace("-", "")[:8]  # "2025-11-01" -> "20251101"
+    timerange_end = result.end_date.replace("-", "")[:8]      # "2026-03-24" -> "20260324"
+    timerange = f"{timerange_start}-{timerange_end}"
 
     # Build strategy metrics dict
     metrics = result.metrics.copy()
@@ -158,20 +202,33 @@ def _build_freqtrade_result(result: BacktestResult, filename: str) -> dict[str, 
         "profit_total_abs": metrics.get("profit_total_abs", 0.0),
         "max_drawdown": metrics.get("max_drawdown", 0.0),
         "max_drawdown_abs": metrics.get("max_drawdown_abs", 0.0),
-        "sharpe": metrics.get("sharpe", 0.0),
-        "sortino": metrics.get("sortino", 0.0),
-        "calmar": metrics.get("calmar", 0.0),
-        "winrate": metrics.get("winrate", 0.0),
+        "sharpe": metrics.get("sharpe", 0.0) or 0.0,  # Ensure not NaN/null
+        "sortino": metrics.get("sortino", 0.0) or 0.0,
+        "calmar": metrics.get("calmar", 0.0) or 0.0,
+        "winrate": metrics.get("winrate", 0.0) or 0.0,
         "trade_count": metrics.get("trade_count", 0),
-        "profit_factor": metrics.get("profit_factor", 0.0),
-        "cagr": metrics.get("cagr", 0.0),
-        "avg_trade_pnl": metrics.get("avg_trade_pnl", 0.0),
-        "avg_trade_duration": metrics.get("avg_trade_duration", 0.0),
+        "total_trades": metrics.get("trade_count", 0),  # Alias for trade_count
+        "profit_factor": metrics.get("profit_factor", 0.0) or 0.0,
+        "cagr": metrics.get("cagr", 0.0) or 0.0,
+        "avg_trade_pnl": metrics.get("avg_trade_pnl", 0.0) or 0.0,
+        "avg_trade_duration": metrics.get("avg_trade_duration", 0.0) or 0.0,
         "total_days": metrics.get("total_days", 0),
+        "backtest_days": metrics.get("total_days", 0),  # Alias for total_days
         "backtest_start": result.start_date,
         "backtest_end": result.end_date,
+        "backtest_start_ts": _date_to_ms_epoch(result.start_date),  # Required by FreqUI
+        "backtest_end_ts": _date_to_ms_epoch(result.end_date),      # Required by FreqUI
+        "timerange": timerange,  # Required by FreqUI TimeRangeSelect.vue (format: "20251101-20260324")
+        "timeframe": "1d",  # Required by FreqUI
+        "strategy_name": strategy_name,  # Required by FreqUI
+        "stake_currency": "CNY",  # Required by FreqUI
+        "stake_amount": 100000.0,  # Approximate position size
+        "starting_balance": result.initial_capital,
+        "final_balance": result.final_nav,
+        "max_open_trades": 5,  # From Chan Theory rules
         "initial_capital": result.initial_capital,
         "final_nav": result.final_nav,
+        "exit_reason_summary": exit_reason_summary,  # FreqUI needs this for performance metrics
     }
 
     # Build metadata dict

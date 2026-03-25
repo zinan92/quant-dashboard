@@ -76,6 +76,8 @@ class Trade:
         Profit/loss as a decimal ratio (0.05 = 5%).
     commission_total : float
         Total commission paid (entry + exit).
+    exit_reason : str
+        Reason for exiting the trade (e.g., 'sell_signal', 'stop_loss', 'roi').
     """
 
     trade_id: int
@@ -88,6 +90,7 @@ class Trade:
     pnl: float
     pnl_pct: float
     commission_total: float
+    exit_reason: str = "sell_signal"  # Default to sell_signal for Chan Theory
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +360,7 @@ class PortfolioManager:
             pnl=round(pnl, 2),
             pnl_pct=round(pnl_pct, 6),
             commission_total=round(total_commission, 2),
+            exit_reason="sell_signal",  # Chan Theory signal-based exit
         )
         self.closed_trades.append(trade)
         del self.positions[symbol]
