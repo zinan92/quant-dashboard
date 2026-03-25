@@ -1,0 +1,35 @@
+# OS
+.DS_Store
+__pycache__/
+*.pyc
+
+# Python
+.venv/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Data
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets
+.env
+
+# Other projects in this directory (only track .factory/ and quant-dashboard/)
+ashare/
+echo/
+gold-trading/
+park-intel/
+qualitative-vincent/
+trading-agents/
+trading-skills-catalog/
+tradinghouse/
+_archived/
