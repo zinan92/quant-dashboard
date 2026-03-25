@@ -1,0 +1,28 @@
+{
+  "featureId": "fix-benchmark-page-path",
+  "reviewedAt": "2026-03-25T07:30:00.000Z",
+  "commitId": "d820dfa",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix correctly addresses the blocking issue from the benchmark-visual-overlay review. The FileResponse path was changed from `frontend_dist / 'benchmark.html'` (gitignored build artifact at frontend/dist/benchmark.html) to a new `benchmark_html_path` variable pointing to `frontend/benchmark.html` (the committed source file). The diff is minimal and surgical: 2 files changed, 4 insertions, 2 deletions. The unused `import pytest` in the test file was also removed, fixing the F401 lint error. The worker verified the fix by running all 311 tests (passing) and confirming via curl that the route serves the correct file (18305 bytes matching the source file). The fix ensures the benchmark page survives FreqUI rebuilds (pnpm run build) and works on fresh clones.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/main.py",
+        "line": 97,
+        "severity": "non_blocking",
+        "description": "The benchmark_html_path is defined unconditionally inside the `if frontend_dist.exists()` block, but doesn't itself check whether frontend/benchmark.html exists. If the benchmark.html source file were deleted, FastAPI's FileResponse would raise a RuntimeError at request time (not at startup). This is a minor robustness concern — the file is tracked in git and unlikely to be missing, but a `Path.exists()` guard with a 404 fallback would be more defensive. Low priority since the file is version-controlled."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The frequi-compat.md library file documents that 'frontend/dist/ is excluded by .gitignore' and requires a build step, but doesn't document the pattern for serving custom static HTML files that live outside dist/. The benchmark.html is served from frontend/benchmark.html (source) not frontend/dist/. This serving pattern for non-FreqUI custom pages (source files outside the build directory) should be documented so future workers don't repeat the same dist/ path mistake.",
+      "evidence": "app/main.py:96-97 — benchmark_html_path points to frontend/benchmark.html (outside dist/). The original benchmark-visual-overlay worker mistakenly used frontend_dist / 'benchmark.html' (inside dist/), causing the blocking issue. frequi-compat.md mentions dist/ is gitignored but doesn't clarify where custom pages should be served from."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/frontend-followup/scrutiny/reviews/benchmark-visual-overlay.json",
+  "summary": "The fix adequately addresses the original blocking issue. The prior review identified that app/main.py served benchmark.html from frontend/dist/ (a gitignored build artifact) instead of frontend/benchmark.html (the committed source). The fix changes the FileResponse path to serve from the committed source file, adding a clear comment explaining the rationale. The unused pytest import was also removed. All 311 tests pass, and curl verification confirmed the correct file (18305 bytes) is served. The change is minimal, correct, and directly resolves the deployment-breaking bug. Verdict: PASS."
+}
