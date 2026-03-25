@@ -6,27 +6,20 @@
 
 ## Validation Surface
 
-**Primary surface:** Web browser at http://localhost:8020 (FreqUI SPA)
+**Primary surface:** Web browser at http://localhost:8020 (Streamlit app)
 **Tool:** `agent-browser` for browser-based validation
-**Secondary surface:** REST API endpoints via curl
+**No auth required:** Streamlit app has no login — loads directly.
 
 ### What to test via browser:
-- FreqUI login page loads
-- Login with credentials succeeds
-- Dashboard connects (no error banners)
-- Strategy dropdown shows chan_theory
-- Backtest can be started and completes
-- Equity curve chart renders
-- Trade list table displays
-- Performance metrics visible
-- Deep link navigation works (/backtest, /trade)
-- Fresh start with no data doesn't show errors
-
-### What to test via curl:
-- All 14+ MVP API endpoints return correct schemas
-- Auth flow (login → token → authenticated request)
-- Unimplemented endpoints return 404 JSON (not 500)
-- API routes take precedence over SPA fallback
+- Streamlit app loads at http://localhost:8020 with sidebar controls
+- Strategy selector dropdown shows chan_theory
+- Date picker and Run Backtest button visible
+- Clicking Run Backtest shows progress, then results
+- NAV chart renders with strategy equity curve
+- Benchmark overlays (CSI 300, ChiNext) visible on NAV chart
+- Trade list table displays individual trades
+- Performance metrics section shows Sharpe, Sortino, Max Drawdown, Win Rate
+- App is accessible from any browser without installation
 
 ## Validation Concurrency
 
@@ -88,54 +81,58 @@ Write a JSON report to `.factory/validation/backend/user-testing/flows/<group-id
 }
 ```
 
-## Flow Validator Guidance: agent-browser
+## Flow Validator Guidance: agent-browser (Streamlit)
 
 **App URL:** http://localhost:8020
-**Auth credentials:** username=`admin`, password=`admin`
+**Auth:** None required — Streamlit app loads directly, no login needed.
 **Testing tool:** `agent-browser` skill (invoke via Skill tool at start of session)
 
-### FreqUI Login Flow:
-1. Navigate to http://localhost:8020 — FreqUI login page loads
-2. The login page has fields for server URL, username, and password
-3. Server URL should already be populated (or set to `http://localhost:8020`)
-4. Enter username `admin` and password `admin`
-5. Click the Login button
-6. Dashboard should load — look for connected state (no red/orange error banners)
+### Streamlit App Layout:
+- **Sidebar (left):** Backtest Configuration panel with:
+  - "Strategy" dropdown (should list `chan_theory`)
+  - "Start Date" and "End Date" date pickers
+  - "Initial Capital" number input
+  - "🚀 Run Backtest" button (blue/primary)
+- **Main area (center):** Title "📈 A-Share Quantitative Trading Dashboard"
+  - Before running a backtest: shows welcome message with instructions
+  - After running: shows results sections
 
-### FreqUI Navigation:
-- **Dashboard/Home:** Shows bot status, open trades (empty in webserver mode)
-- **Backtest page:** Access via sidebar or direct URL http://localhost:8020/backtest
-  - Strategy dropdown to select `chan_theory`
-  - Date range selector
-  - "Start Backtest" button
-  - After completion: equity curve chart, trade list table, performance metrics
-- **Trade History:** Access via sidebar
+### How to run a backtest:
+1. Navigate to http://localhost:8020
+2. In the sidebar, verify "chan_theory" is selected in Strategy dropdown
+3. Leave date range and initial capital at defaults (or adjust if needed)
+4. Click "🚀 Run Backtest" button
+5. Main area shows progress spinner/bar with percentage
+6. Wait for completion (usually 10-30 seconds for full universe)
+7. Results appear in order:
+   a. "📊 Performance Summary" — 6 metric cards (Total Return, CAGR, Sharpe Ratio, Max Drawdown, Win Rate, Trade Count)
+   b. "📈 Net Asset Value" — Plotly chart with strategy curve + CSI 300 + ChiNext benchmark lines
+   c. "📉 Drawdown Chart" — drawdown visualization
+   d. "📋 Trade List" — table of individual trades
+   e. "🔥 Monthly Returns Heatmap"
+   f. "🏆 Per-Stock Performance" — bar chart
 
-### Backtest Flow in FreqUI:
-1. Navigate to Backtest page
-2. Select `chan_theory` from strategy dropdown
-3. Optionally set timerange (default should work)
-4. Click "Start" or equivalent button
-5. Wait for completion (should be fast, <10 seconds)
-6. Results appear: equity curve, trade table, metrics summary
-
-### Known quirks:
-- Some backtest metrics may show "undefined" or "N/A" for fields FreqUI expects but our backend doesn't populate exactly right. This is a known non-blocking issue.
-- The backtest completes near-instantly so progress bar may not be visible.
-- After login, FreqUI may poll several endpoints — wait a moment for the dashboard to stabilize.
+### Streamlit interaction quirks:
+- Streamlit reruns the whole script on every widget interaction — this is normal behavior
+- The sidebar's Strategy dropdown is a `st.selectbox` — click it to see options
+- Date inputs are `st.date_input` — click to open calendar widget
+- The "Run Backtest" button triggers a full rerun — wait for the spinner to complete
+- Progress bar shows percentage during backtest execution
+- After the backtest completes, scroll down to see all result sections
+- If the page shows "Please wait..." it's running Streamlit's initial load — wait a moment
 
 ### Isolation rules:
-- Each browser subagent uses its own agent-browser session (based on worker session ID)
-- Backtest operations mutate global state — only ONE subagent should run backtests
-- Login/navigation tests are read-only and can run in parallel
+- Each browser subagent uses its own agent-browser session
+- Only ONE subagent should click "Run Backtest" (modifies session state)
+- Read-only checks (page loads, UI element presence) can run in parallel
 
 ### Evidence:
-- Take screenshots at key moments (login page, dashboard, backtest results, etc.)
+- Take screenshots at key moments
 - Save evidence files to the mission's evidence directory
-- Check browser console for JavaScript errors (VAL-CROSS-003)
+- Check for any Streamlit error banners (red boxes with error messages)
 
 ### Report format:
-Write a JSON report to `.factory/validation/frontend/user-testing/flows/<group-id>.json` with:
+Write a JSON report to `.factory/validation/streamlit-pivot/user-testing/flows/<group-id>.json` with:
 ```json
 {
   "groupId": "<group-id>",
@@ -172,3 +169,20 @@ Write a JSON report to `.factory/validation/frontend/user-testing/flows/<group-i
 
 ### Auth credentials
 - Default: username=`admin`, password=`admin` (configurable via env vars `API_USERNAME`, `API_PASSWORD`)
+
+## Discovered Testing Knowledge (Streamlit-Pivot Milestone)
+
+### Streamlit internal scrolling
+- Streamlit uses an internal scroll container with `[data-testid='stMain']` and `overflow-y: auto`. Regular page scrolling does not work in agent-browser. Must use `--selector [data-testid=stMain]` to scroll the content area.
+
+### Backtest speed on Streamlit
+- Backtest for 422 stocks completes in under 1 second via Streamlit. The `st.progress()` bar and spinners flash too quickly to capture in screenshots. Post-completion status messages (info + success) serve as evidence of the progress flow.
+
+### Performance metrics displayed
+- The Streamlit dashboard shows 6 metric cards: Total Return, CAGR, Sharpe Ratio, Max Drawdown, Win Rate, Trade Count.
+- Sortino ratio is NOT displayed — the validation contract requires it but CAGR is shown in its place.
+
+### Streamlit startup
+- Start with: `python3 -m streamlit run streamlit_app.py --server.port 8020 --server.headless true`
+- The `streamlit` command may not be in PATH — use `python3 -m streamlit` instead.
+- Healthcheck: `curl -sf http://localhost:8020/_stcore/health`

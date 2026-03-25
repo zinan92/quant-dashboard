@@ -1,0 +1,41 @@
+{
+  "milestone": "streamlit-pivot",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 11,
+    "passed": 9,
+    "failed": 2,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-UI-001",
+    "VAL-UI-002",
+    "VAL-UI-003",
+    "VAL-UI-004",
+    "VAL-UI-005",
+    "VAL-UI-006",
+    "VAL-BENCH-001",
+    "VAL-BENCH-002",
+    "VAL-CROSS-002"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-UI-007",
+      "reason": "Sortino ratio is not displayed in the Performance Summary section. The UI shows 6 metric cards: Total Return, CAGR, Sharpe Ratio, Max Drawdown, Win Rate, Trade Count. CAGR occupies the slot where Sortino should be. The validation contract requires Sharpe, Sortino, Max Drawdown, and Win Rate."
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "reason": "End-to-end backtest flow partially fails because Sortino ratio is missing from metrics. All other aspects pass: NAV chart with CSI 300 and ChiNext benchmarks, trade list table with 4 trades, no errors."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Updated validation surface from FreqUI to Streamlit. Added 'Flow Validator Guidance: agent-browser (Streamlit)' section with Streamlit-specific layout, interaction quirks, and backtest flow instructions.",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}

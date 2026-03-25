@@ -1,0 +1,93 @@
+{
+  "groupId": "ui-basic",
+  "testedAt": "2026-03-25T00:00:00.000Z",
+  "isolation": {
+    "appUrl": "http://localhost:8020",
+    "session": "32b5992195de__ui_basic"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-UI-001",
+      "title": "Streamlit app loads with controls",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:8020",
+          "expected": "Streamlit app loads with sidebar controls",
+          "observed": "Streamlit app loaded successfully showing 'A-Share Quantitative Trading Dashboard' title"
+        },
+        {
+          "action": "Wait for network idle",
+          "expected": "Page fully loaded",
+          "observed": "Page fully loaded with all sidebar controls visible"
+        },
+        {
+          "action": "Take annotated screenshot",
+          "expected": "Screenshot shows strategy selector, date pickers, and Run Backtest button",
+          "observed": "Screenshot confirms sidebar with: Strategy dropdown (chan_theory selected), Start Date (2025/12/25), End Date (2026/03/25), Initial Capital (1000000), and '🚀 Run Backtest' button"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["streamlit-pivot/ui-basic/VAL-UI-001-initial-load.png"],
+        "consoleErrors": "none",
+        "network": "GET http://localhost:8020 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UI-003",
+      "title": "Strategy dropdown lists chan_theory",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Click on strategy dropdown combobox",
+          "expected": "Dropdown opens showing available strategies",
+          "observed": "Dropdown opened showing 'chan_theory' as a selectable option"
+        },
+        {
+          "action": "Take screenshot with dropdown open",
+          "expected": "Screenshot shows 'chan_theory' listed in dropdown",
+          "observed": "Screenshot confirms 'chan_theory' is listed in the dropdown options"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["streamlit-pivot/ui-basic/VAL-UI-003-dropdown-open.png"],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Accessible from any browser without installation",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to http://localhost:8020 in a headless Chromium browser",
+          "expected": "Page loads without requiring any client-side software installation",
+          "observed": "Page loaded successfully in headless Chromium — standard browser, no plugins or special software needed"
+        },
+        {
+          "action": "Verify page rendered correctly",
+          "expected": "Full Streamlit UI visible with all controls and content",
+          "observed": "Full dashboard rendered with sidebar controls, title, welcome message, and feature list"
+        },
+        {
+          "action": "Check for console errors",
+          "expected": "No errors",
+          "observed": "No console errors found"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["streamlit-pivot/ui-basic/VAL-CROSS-002-browser-access.png"],
+        "consoleErrors": "none",
+        "network": "GET http://localhost:8020 -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed, 0 failed. VAL-UI-001: Streamlit app loads with strategy selector, date pickers, and Run Backtest button. VAL-UI-003: Strategy dropdown lists 'chan_theory' as a selectable option. VAL-CROSS-002: App accessible from browser without any installation."
+}
