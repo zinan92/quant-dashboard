@@ -1,46 +1,29 @@
 {
   "milestone": "frontend",
-  "round": 1,
+  "round": 2,
   "status": "fail",
   "assertionsSummary": {
-    "total": 13,
-    "passed": 10,
+    "total": 3,
+    "passed": 0,
     "failed": 3,
     "blocked": 0
   },
-  "passedAssertions": [
-    "VAL-UI-001",
-    "VAL-UI-002",
-    "VAL-UI-003",
-    "VAL-UI-004",
-    "VAL-UI-005",
-    "VAL-UI-006",
-    "VAL-CROSS-001",
-    "VAL-CROSS-002",
-    "VAL-CROSS-004",
-    "VAL-BENCH-001"
-  ],
+  "passedAssertions": [],
   "failedAssertions": [
     {
       "id": "VAL-UI-007",
-      "reason": "Performance metrics (Sharpe, drawdown, profit factor) present in API response but FreqUI cannot render them. Backtesting summary section is empty. Root cause: backtest result schema incompatibility — missing/misformatted fields cause JS errors (RangeError: Invalid time value on backtest_start_ts/end_ts, TypeError on exit_reason aggregation data)."
-    },
-    {
-      "id": "VAL-CROSS-003",
-      "reason": "Multiple JavaScript console errors from FreqTrade schema mismatches: (1) TypeError: Cannot read undefined.split in TimeRangeSelect (timerange format), (2) TypeError: Cannot read undefined.length/map in backtestMetrics (missing exit_reason data), (3) RangeError: Invalid time value (backtest_start_ts/end_ts format), (4) TypeError: Cannot read undefined.forEach in chart rendering (missing market_change data). Core flow works but summary sections fail to render."
+      "reason": "API returns valid metrics (winrate=0.43, profit_factor=1.07, sharpe=0.21, max_drawdown=-0.42) but FreqUI does not display them. Missing strategy_comparison key in backtest_result, exit_reason_summary entries lack exit_reason/profit_factor/expectancy fields, trades missing stake_amount/leverage fields. Timestamp/RangeError issues from round 1 are fixed."
     },
     {
       "id": "VAL-BENCH-002",
-      "reason": "No visual benchmark comparison displayed in FreqUI. The /api/v1/backtest/history/{filename}/market_change endpoint returns correct data via curl (65 data points), but FreqUI's internal getBacktestMarketChange request returns 404 — URL pattern mismatch between what FreqUI expects and what the backend implements."
+      "reason": "Backend /api/v1/backtest/history/{filename}/market_change endpoint works (returns 200 with valid data), but FreqUI's internal getBacktestMarketChange call uses a different URL pattern and gets 404. Need to investigate FreqUI source (ftbot.ts) to find the exact URL pattern FreqUI expects and implement a matching route."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "reason": "Partial progress from round 1: .split TypeError and RangeError (Invalid time value) are fixed. But 6 TypeErrors remain: Cannot read undefined.length (backtestMetrics, CandleChartContainer, BacktestingView), Cannot read undefined.map (BacktestingView x2), Cannot read undefined.forEach (index). Root causes: missing strategy_comparison array, incomplete trade fields (stake_amount/leverage), missing chart data structures, incomplete exit_reason_summary entries."
     }
   ],
   "blockedAssertions": [],
-  "appliedUpdates": [
-    {
-      "target": "user-testing.md",
-      "description": "Added Flow Validator Guidance: agent-browser section with login flow, navigation, backtest flow, isolation rules, and evidence format for browser-based testing",
-      "source": "setup"
-    }
-  ],
-  "previousRound": null
+  "appliedUpdates": [],
+  "previousRound": ".factory/validation/frontend/user-testing/synthesis-round1.json"
 }

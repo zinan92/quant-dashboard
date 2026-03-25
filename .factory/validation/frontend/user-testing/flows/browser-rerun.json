@@ -1,0 +1,97 @@
+{
+  "groupId": "browser-rerun",
+  "testedAt": "2026-03-25T12:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:8020",
+    "credentials": "admin/admin",
+    "sessionId": "262c17fd4959"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-UI-007",
+      "title": "Performance metrics display",
+      "status": "fail",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020 and log in with admin/admin", "expected": "Dashboard loads", "observed": "Dashboard loaded successfully" },
+        { "action": "Navigate to Backtest page and select chan_theory strategy", "expected": "Strategy selected", "observed": "chan_theory selected from dropdown" },
+        { "action": "Click Start backtest and wait for completion", "expected": "Backtest completes with results", "observed": "Backtest completed in under 3 seconds, result tabs became enabled" },
+        { "action": "Check Analyze result tab for performance metrics (win rate, profit factor, Sharpe ratio, max drawdown)", "expected": "All four metrics displayed with numeric values", "observed": "Exit reason table shows Profit Factor=N/A and Expectancy=N/A. Win rate not shown as a named metric (only raw Wins:3, Losses:4). Sharpe ratio and max drawdown not displayed anywhere in the UI." },
+        { "action": "Check Visualize summary tab for additional metrics", "expected": "Performance summary metrics visible", "observed": "Only 'Trades log' bar chart and 'Trades durations' box plots shown. No Sharpe, max drawdown, or win rate metrics." },
+        { "action": "Verify API response contains the metrics", "expected": "API should have the data", "observed": "API returns winrate=0.428571, profit_factor=1.069388, sharpe=0.214803, max_drawdown=-0.418272 — all numeric and valid. But FreqUI does not render them because: (1) exit_reason_summary entries lack profit_factor/expectancy fields, (2) strategy_comparison key is missing from backtest_result, which FreqUI needs to display summary metrics." }
+      ],
+      "evidence": {
+        "screenshots": [
+          "frontend/browser-group/VAL-UI-007-analyze-result-tab.png",
+          "frontend/browser-group/VAL-UI-007-analyze-result-full.png",
+          "frontend/browser-group/VAL-UI-007-analyze-result-scrolled.png",
+          "frontend/browser-group/VAL-UI-007-analyze-scrolled2.png",
+          "frontend/browser-group/VAL-UI-007-visualize-summary.png",
+          "frontend/browser-group/VAL-UI-007-visualize-result.png",
+          "frontend/browser-group/VAL-UI-007-load-results.png"
+        ],
+        "consoleErrors": "No TypeError/RangeError on Analyze result tab specifically; 404 errors from unimplemented endpoints (expected)",
+        "network": "GET /api/v1/backtest -> 200 with valid metrics in response"
+      },
+      "issues": "FreqUI does not display win rate, profit factor, Sharpe ratio, or max drawdown as visible metrics. The API returns valid numeric values for all four, but: (1) exit_reason_summary entries are missing 'exit_reason', 'profit_factor', and 'expectancy' fields that FreqUI expects, causing N/A display; (2) the 'strategy_comparison' key is absent from backtest_result, which is what FreqUI uses to render the summary metrics table with Sharpe, Sortino, max drawdown etc. Additionally, 'Total stake amount' column shows 'N/A (undefinedx)' for all trades, indicating missing 'stake_amount' and/or 'leverage' fields in trade data."
+    },
+    {
+      "id": "VAL-BENCH-002",
+      "title": "Strategy vs benchmark visual comparison",
+      "status": "fail",
+      "steps": [
+        { "action": "After backtest completion, check Visualize summary tab for benchmark overlay", "expected": "Strategy equity curve shown alongside CSI 300 or ChiNext benchmark", "observed": "Visualize summary shows only 'Trades log' and 'Trades durations' charts. No benchmark/market change data overlay visible." },
+        { "action": "Check Analyze result tab for benchmark comparison", "expected": "Some benchmark comparison section", "observed": "No benchmark data displayed. Only strategy settings, exit reason table, and single trades table." },
+        { "action": "Verify market_change API endpoint works", "expected": "Endpoint returns market change data", "observed": "GET /api/v1/backtest/history/{filename}/market_change returns valid data with date+market_change columns. Data is available but not displayed in FreqUI." },
+        { "action": "Check if FreqUI internally calls market_change", "expected": "FreqUI fetches market_change data", "observed": "FreqUI calls getBacktestMarketChange internally but gets a 404 — it uses a different URL pattern than the backend's /api/v1/backtest/history/{filename}/market_change endpoint. The URL mismatch means FreqUI never receives the benchmark data." }
+      ],
+      "evidence": {
+        "screenshots": [
+          "frontend/browser-group/VAL-BENCH-002-visualize-summary.png",
+          "frontend/browser-group/VAL-BENCH-002-visualize-summary-scrolled.png"
+        ],
+        "consoleErrors": "AxiosError: Request failed with status code 404 on getBacktestMarketChange call",
+        "network": "GET /api/v1/backtest/history/{filename}/market_change -> 200 (direct curl), but FreqUI's internal call uses different URL pattern -> 404"
+      },
+      "issues": "FreqUI does not display benchmark comparison. The backend has a working market_change endpoint at /api/v1/backtest/history/{filename}/market_change, but FreqUI's internal getBacktestMarketChange call uses a different URL pattern (likely /api/v1/backtest/{id}/market_change or similar), resulting in a 404. The URL routing mismatch was supposedly fixed but the issue persists. Additionally, FreqUI expects market_change data to be embedded in the backtest result payload for the equity curve overlay, not fetched from a separate endpoint."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "API schema FreqTrade compatibility",
+      "status": "fail",
+      "steps": [
+        { "action": "Clear browser console and navigate to http://localhost:8020", "expected": "Page loads", "observed": "Page loaded. Only 404 AxiosErrors from unimplemented endpoints (expected behavior per AGENTS.md)." },
+        { "action": "Navigate to Backtest page, select chan_theory, run backtest", "expected": "No JS errors during backtest", "observed": "No errors during backtest execution itself" },
+        { "action": "Click Analyze result tab", "expected": "No JS parsing errors", "observed": "No new errors on this tab" },
+        { "action": "Click Visualize summary tab", "expected": "No JS parsing errors", "observed": "TypeError: Cannot read properties of undefined (reading 'length') in backtestMetrics-B8FGALgx.js — FreqUI cannot parse backtest metrics due to missing/malformed fields" },
+        { "action": "Click Visualize result tab", "expected": "No JS parsing errors", "observed": "Multiple TypeErrors: (1) Cannot read undefined.map in BacktestingView (x2), (2) Cannot read undefined.forEach in index file, (3) Cannot read undefined.length in CandleChartContainer and BacktestingView" },
+        { "action": "Click Load Results tab", "expected": "No JS parsing errors", "observed": "404 AxiosError from getBacktestMarketChange (unimplemented URL pattern)" },
+        { "action": "Check full console for all errors accumulated during flow", "expected": "No TypeError/RangeError related to schema parsing", "observed": "Found 6 TypeErrors and 1 AxiosError 404: (1) Cannot read undefined.length in backtestMetrics, (2) Cannot read undefined.map in BacktestingView x2, (3) AxiosError 404 on getBacktestMarketChange, (4) Cannot read undefined.forEach in index, (5) Cannot read undefined.length in CandleChartContainer, (6) Cannot read undefined.length in BacktestingView" }
+      ],
+      "evidence": {
+        "screenshots": [
+          "frontend/browser-group/VAL-CROSS-003-console-errors.png"
+        ],
+        "consoleErrors": "6 TypeErrors found: (1) TypeError: Cannot read properties of undefined (reading 'length') in backtestMetrics-B8FGALgx.js:1:463 — likely from missing strategy_comparison data; (2-3) TypeError: Cannot read properties of undefined (reading 'map') in BacktestingView-DIs43cFt.js:12:5303 x2 — likely from missing/malformed data arrays; (4) AxiosError 404 on getBacktestMarketChange; (5) TypeError: Cannot read properties of undefined (reading 'forEach') in index-99nA6m-3.js:149:3994; (6) TypeError: Cannot read properties of undefined (reading 'length') in CandleChartContainer.vue; (7) TypeError: Cannot read properties of undefined (reading 'length') in BacktestingView",
+        "network": "Multiple endpoints return valid responses (200), but schema mismatches in response data cause FreqUI JS parsing failures"
+      },
+      "issues": "The previous round identified: TypeError Cannot read undefined.split, TypeError Cannot read undefined.length/map, RangeError Invalid time value, TypeError Cannot read undefined.forEach. The fixes addressed timestamp format (backtest_start_ts/backtest_end_ts as epoch ints) and exit_reason_summary. However, the re-run still shows: TypeError Cannot read undefined.length (in backtestMetrics and CandleChartContainer), TypeError Cannot read undefined.map (in BacktestingView), and TypeError Cannot read undefined.forEach (in index). The .split and RangeError issues appear fixed (not seen this round), but .length, .map, and .forEach errors persist. Root causes likely include: (1) missing strategy_comparison array in backtest_result, (2) missing/malformed trade fields (stake_amount shows 'N/A (undefinedx)'), (3) missing pair_candles data structure for CandleChartContainer, (4) missing exit_reason field in exit_reason_summary entries."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "FreqUI's session persists between page reloads, so the login state carried over when navigating to /backtest directly. The backtest from the previous test run's results were still loaded.",
+      "resolved": true,
+      "resolution": "Used the Run backtest tab to start a fresh backtest",
+      "affectedAssertions": ["VAL-UI-007", "VAL-BENCH-002"]
+    },
+    {
+      "description": "The 'errors' command in agent-browser only shows a summary, not the full error details. Had to use 'console' command to see complete error stack traces.",
+      "resolved": true,
+      "resolution": "Used 'agent-browser console' to get full error details",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions (re-run after fixes): all 3 FAILED. VAL-UI-007: API returns valid metrics (winrate, profit_factor, sharpe, max_drawdown) but FreqUI does not display them — missing strategy_comparison key and incomplete exit_reason_summary fields. VAL-BENCH-002: Market change API endpoint works but FreqUI's internal getBacktestMarketChange call uses a different URL pattern, getting 404. VAL-CROSS-003: 6 TypeErrors persist in console (Cannot read undefined.length/map/forEach) — the timestamp and some fixes helped (no more .split or RangeError), but schema incompatibilities remain in strategy_comparison, trade fields, and chart data structures."
+}
