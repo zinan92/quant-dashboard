@@ -1,0 +1,69 @@
+{
+  "featureId": "infra-expand-stock-universe",
+  "milestone": "data-infra-fix",
+  "reviewer": "scrutiny-feature-reviewer",
+  "reviewedAt": "2026-03-25T16:10:00.000Z",
+  "commitId": "06d40e6",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeQuality": {
+    "score": 4,
+    "notes": "Well-structured class-based design with clear separation of concerns. Good use of INSERT OR IGNORE for idempotency. Parameterized SQL queries prevent injection. Proper logging throughout. Two non-blocking issues: (1) hardcoded date range '20260101'-'20260325' in fetch_index_constituents will need updating for future runs, (2) direct access to tushare_client.pro.index_weight() bypasses TushareClient's _request_with_retry wrapper and its built-in RateLimiter — AGENTS.md says to use TushareClient for all API calls. The script makes ~6 TuShare API calls total (3 index_weight + 1 fetch_stock_list potentially called 2x), so rate limiting is not a practical concern here, but it violates the documented convention."
+  },
+  "testCoverage": {
+    "adequate": true,
+    "notes": "15 test cases covering: existing watchlist retrieval, index constituent fetching (normal + empty response), merge logic, watchlist insertion (normal + empty + idempotent), stock_basic update, symbol_metadata update, stock_sectors update, verification, preservation of existing stocks, and minimum count threshold. Tests use temporary SQLite databases for isolation and mock TuShare API calls appropriately. Two integration test stubs (test_script_is_idempotent, test_preserves_existing_categories) have only pass statements — acceptable as their behavior is covered by other tests."
+  },
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "Hardcoded date range start_date='20260101', end_date='20260325' in fetch_index_constituents(). If the script is re-run in the future (e.g., 2027), it will fetch stale constituent data. Should compute dates dynamically (e.g., end_date=today, start_date=today-90d).",
+      "file": "scripts/expand_stock_universe.py",
+      "line": 87
+    },
+    {
+      "severity": "non_blocking",
+      "description": "Direct call to self.tushare_client.pro.index_weight() bypasses TushareClient's _request_with_retry() wrapper which includes rate limiting and retry logic. Should either add an index_weight() method to TushareClient, or at minimum wrap the call. Not practically impactful here (only 3 calls), but violates AGENTS.md convention: 'Use TushareClient for all TuShare API calls'.",
+      "file": "scripts/expand_stock_universe.py",
+      "line": 85
+    },
+    {
+      "severity": "non_blocking",
+      "description": "Commit 06d40e6 bundles 13 unrelated file changes (health routes refactoring, news_sentiment rewrite, logging rotation, validation docs, watchdog script, etc.) alongside the feature's 2 files. This makes the commit non-atomic and harder to revert if the feature needs rollback.",
+      "file": null,
+      "line": null
+    },
+    {
+      "severity": "suggestion",
+      "description": "stock_sectors inserts all new tickers with a generic sector='指数成份股' rather than fetching actual industry/sector classifications from TuShare (ths_index/ths_member). This provides sector coverage but not meaningful sector categorization. Adequate for the feature requirement but worth noting for future improvement.",
+      "file": "scripts/expand_stock_universe.py",
+      "line": 366
+    },
+    {
+      "severity": "suggestion",
+      "description": "Two integration test stubs (test_script_is_idempotent, test_preserves_existing_categories) contain only 'pass'. These should either be implemented or removed to avoid confusion.",
+      "file": "tests/test_expand_stock_universe.py",
+      "line": null
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "type": "AGENTS.md",
+      "observation": "AGENTS.md says 'Use TushareClient for all TuShare API calls (don't create new clients)' but doesn't clarify that this also means not accessing .pro directly to bypass rate limiting. The worker used TushareClient but accessed .pro.index_weight() directly. A clarification like 'Always use TushareClient wrapper methods, never call .pro.* directly' would prevent this pattern.",
+      "confidence": "medium"
+    },
+    {
+      "type": "AGENTS.md",
+      "observation": "The environment.md file in .factory/library/ still says '422 A-share stocks' for market.db. After this expansion, watchlist now has 1938 stocks. This should be updated to reflect the expanded universe.",
+      "confidence": "high"
+    },
+    {
+      "type": "library",
+      "observation": "The architecture.md file in .factory/library/ references '422 stocks + 5 indices' in the system architecture diagram. After expansion to 1938 stocks and 8 indices, this is stale.",
+      "confidence": "high"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The script successfully expands the stock universe from 413 to 1938 tickers by fetching CSI 300/500/1000 constituents from TuShare. All requirements are met: idempotent execution (INSERT OR IGNORE), existing stocks preserved, watchlist/symbol_metadata/stock_sectors tables updated, CLI-executable, >= 800 threshold exceeded. DB verification confirms 1938 distinct tickers in both watchlist and stock_sectors. Test suite has 15 cases with good coverage. Non-blocking issues: hardcoded date range that will go stale, direct .pro access bypassing rate limiter wrapper, and a commit that bundles unrelated changes. The .factory/library docs (environment.md, architecture.md) now reference outdated stock counts."
+}

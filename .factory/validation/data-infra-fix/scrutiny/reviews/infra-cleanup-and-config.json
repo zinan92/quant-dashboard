@@ -1,0 +1,46 @@
+{
+  "featureId": "infra-cleanup-and-config",
+  "milestone": "data-infra-fix",
+  "reviewer": "scrutiny-feature-reviewer",
+  "reviewedAt": "2026-03-25T16:10:00.000Z",
+  "commitId": "e0971c8",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeQuality": {
+    "score": 5,
+    "notes": "Clean, well-structured changes. All 7 files modified consistently: calendar_updater.py (core retention logic), kline_updater.py (delegation wrapper), kline_scheduler.py (explicit parameter passing), config.py (default change), .env (runtime config), requirements-dev.txt (httpx conflict fix), plus comprehensive tests. The worker correctly propagated the mins_days parameter through the entire call chain (scheduler → kline_updater → calendar_updater). Docstrings and comments updated in Chinese matching project conventions."
+  },
+  "testCoverage": {
+    "adequate": true,
+    "notes": "10 tests covering all critical paths: 6 cleanup retention tests (daily survive 400d, daily deleted at 2000d, 30m survive 100d, 30m deleted at 400d, recent data preserved, custom params) and 4 config tests (default 1250, env override, .env file check, singleton). Tests also include trade calendar coverage (2021-2026 span, trading day count, idempotency, date range verification) — 4 additional trade calendar tests included in the same file. Edge cases well covered. One minor fragility: test_candle_lookback_in_actual_env_file reads the real .env file, but it uses pytest.skip if file not found."
+  },
+  "issues": [
+    {
+      "severity": "non_blocking",
+      "description": "A stale backup file 'src/services/kline_updater.py.backup' still contains the old cleanup_old_klines(days: int = 365) signature. This backup file could confuse future developers about the correct retention values. Consider removing it.",
+      "file": "src/services/kline_updater.py.backup",
+      "line": 850
+    },
+    {
+      "severity": "suggestion",
+      "description": "test_candle_lookback_in_actual_env_file reads the real .env file from the filesystem, coupling the test to the deployment environment. This is fragile if the test is run in CI or a clean checkout without .env. The pytest.skip guard mitigates this, but a more robust approach would be to verify .env.example or use a mock.",
+      "file": "tests/test_config.py",
+      "line": 44
+    }
+  ],
+  "sharedStateObservations": [
+    {
+      "type": "AGENTS.md",
+      "observation": "AGENTS.md correctly documents CANDLE_LOOKBACK in the config.py reference under Project Structure, but doesn't mention the retention values (1825 days daily, 365 days 30-min) anywhere. Future workers modifying cleanup logic may not know the intended retention windows without reading the code.",
+      "confidence": "low"
+    },
+    {
+      "type": "services.yaml",
+      "observation": "services.yaml install command already includes requirements-dev.txt, which aligns with the worker's fix to the httpx version conflict. No gap here.",
+      "confidence": "high"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "All 6 review checks pass. Daily kline retention correctly set to 1825 days, 30-min to 365 days, CANDLE_LOOKBACK default is 1250 (both in config.py and .env). cleanup_old_klines() is only called from scheduler._job_cleanup — verified via grep across src/, web/, and main.py. The mins_days parameter is correctly propagated through the full call chain (scheduler → kline_updater → calendar_updater). Tests are comprehensive with 10 test cases covering retention boundary conditions, config defaults, and env overrides. No security issues or regressions. One non-blocking observation: a stale .backup file retains old retention values."
+}

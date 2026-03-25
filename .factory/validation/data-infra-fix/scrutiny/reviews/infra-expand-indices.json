@@ -1,0 +1,33 @@
+{
+  "featureId": "infra-expand-indices",
+  "milestone": "data-infra-fix",
+  "reviewer": "scrutiny-feature-reviewer",
+  "reviewedAt": "2026-03-25T16:00:00.000Z",
+  "commitId": "f0b846f637089b5897dd1a789ddfd85b5b7dee53",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeQuality": {
+    "score": 5,
+    "notes": "Clean, well-structured implementation. The worker upgraded INDEX_LIST from 2-tuple to 3-tuple format (ts_code, sina_code, name), which is a sensible improvement — it makes the Sina code explicit rather than derived, improving clarity and allowing override. All consuming code (update_daily, update_30m, _fetch_kline, _get_sina_code) was properly updated to unpack the 3-tuple. The _get_sina_code method was enhanced with a fallback: if sina_code is provided it's used directly, otherwise the old auto-derivation logic still works. No dead code, no unnecessary changes."
+  },
+  "testCoverage": {
+    "adequate": true,
+    "notes": "10 comprehensive tests covering: exact count (8 entries), 3-tuple format with type checks, all 5 original indices preserved, each of 3 new CSI indices verified individually (ts_code, sina_code, name), Sina code prefix format validation for all entries, aggregate CSI check, and duplicate detection for both ts_codes and sina_codes. Tests are purely structural (no mocking needed) which is appropriate for config validation. Test quality is high with clear assertion messages."
+  },
+  "issues": [],
+  "sharedStateObservations": [
+    {
+      "type": "services.yaml",
+      "observation": "The .factory/services.yaml references quant-dashboard (test/lint/typecheck commands, streamlit service on port 8020), but the ashare project has its own venv and test setup (.venv/bin/python -m pytest tests/ -v --tb=short). The services.yaml does not include commands for the ashare subproject. The worker used the correct ashare test commands from AGENTS.md, not services.yaml.",
+      "confidence": "medium"
+    },
+    {
+      "type": "skills",
+      "observation": "The backend-worker skill is oriented toward quant-dashboard (FreqTrade API, uvicorn on port 8020, app/ directory structure) rather than the ashare project (src/services/, .venv, SQLite market.db). The worker adapted correctly — using ashare paths and .venv/bin/python — but the skill's procedures and examples don't match the ashare project context. The worker followed the general spirit of the procedure (read context, write tests, verify) but many specific commands in the skill don't apply to ashare.",
+      "confidence": "high"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The implementation correctly adds CSI 300 (000300.SH, sh000300, 沪深300), CSI 500 (000905.SH, sh000905, 中证500), and CSI 1000 (000852.SH, sh000852, 中证1000) to INDEX_LIST, bringing the total to 8 entries. All 5 original indices are preserved unchanged. The worker sensibly upgraded the tuple format from 2-tuple to 3-tuple to include explicit Sina codes, and updated all consuming code paths (update_daily, update_30m, _fetch_kline, _get_sina_code) consistently. Sina API symbol format is correct (sh prefix for SH indices). The test suite is comprehensive with 10 tests covering structure, content, format, and uniqueness constraints. No bugs, regressions, or security issues found. Full test suite (852 tests) passed."
+}
