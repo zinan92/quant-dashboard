@@ -192,8 +192,7 @@ if "result" in st.session_state and "last_run" in st.session_state:
         )
 
     with col2:
-        cagr_pct = metrics["cagr"] * 100
-        st.metric("CAGR", f"{cagr_pct:.2f}%")
+        st.metric("Sortino Ratio", f"{metrics['sortino']:.3f}")
 
     with col3:
         st.metric("Sharpe Ratio", f"{metrics['sharpe']:.3f}")
