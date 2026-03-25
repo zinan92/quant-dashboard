@@ -1,0 +1,79 @@
+{
+  "groupId": "login-navigation",
+  "testedAt": "2026-03-25T12:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:8020",
+    "credentials": {
+      "username": "admin",
+      "password": "admin"
+    },
+    "browserSession": "d66150b6fe04__login",
+    "readOnly": true
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-UI-001",
+      "title": "FreqUI loads in browser",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020", "expected": "FreqUI welcome page loads", "observed": "FreqUI welcome page loaded with Freqtrade UI branding, navigation bar, and Login button" },
+        { "action": "Click Login button", "expected": "Login form with server URL, username, password fields", "observed": "Login modal appeared with Bot Name, API Url (pre-populated with http://localhost:8020), Username, and Password fields, plus Submit/Cancel/Reset buttons" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/login-navigation/VAL-UI-001-freqUI-homepage.png", "frontend/login-navigation/VAL-UI-001-login-form.png"],
+        "consoleErrors": "none",
+        "network": "GET http://localhost:8020 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Public accessibility without installation",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020 in browser", "expected": "FreqUI page loads without requiring any client-side installation", "observed": "FreqUI loaded correctly as a web application served from the server, no client-side installation required" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/login-navigation/VAL-UI-001-freqUI-homepage.png"],
+        "consoleErrors": "none",
+        "network": "GET http://localhost:8020 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UI-002",
+      "title": "FreqUI connects to backend",
+      "status": "pass",
+      "steps": [
+        { "action": "Click Login button on FreqUI homepage", "expected": "Login form displayed", "observed": "Login modal with Bot Name, API Url, Username, Password fields" },
+        { "action": "Fill username 'admin' and password 'admin', click Submit", "expected": "Login succeeds, dashboard loads", "observed": "Login succeeded, redirected to dashboard" },
+        { "action": "Verify connected state", "expected": "Dashboard shows connected state, no error banners", "observed": "Dashboard shows 'A-Share Quant Dashboard Online' in top-right, 'Available bots' section with 'ftbot.0' and green indicator, navigation shows logged-in state (Chart, Logs, Backtest, Pairlist Config links)" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/login-navigation/VAL-UI-002-dashboard-connected.png"],
+        "consoleErrors": "Request failed with status code 404 (expected — unimplemented endpoints return 404 as designed, not 500)",
+        "network": "POST /api/v1/token/login -> 200 (implied by successful login)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "SPA routing with deep links",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate directly to http://localhost:8020/backtest (deep link)", "expected": "FreqUI loads correctly, not a 404 page", "observed": "FreqUI backtesting page loaded with Strategy selector, Backtesting parameters, date pickers, Start/Stop/Reset buttons, and tabs (Load Results, Run backtest, Analyze result, Visualize summary, Visualize result)" },
+        { "action": "Verify SPA routing fallback", "expected": "Server serves index.html for non-API routes", "observed": "Server correctly served index.html, FreqUI SPA handled /backtest route client-side, page fully functional with 'A-Share Quant Dashboard Online' connected state" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/login-navigation/VAL-CROSS-004-backtest-deeplink.png"],
+        "consoleErrors": "Request failed with status code 404 x2 (expected — FreqUI polling unimplemented endpoints, returns 404 not 500 as designed)",
+        "network": "GET http://localhost:8020/backtest -> 200 (served index.html via SPA fallback)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: all 4 passed. VAL-UI-001: FreqUI login page loads with all required fields. VAL-CROSS-002: FreqUI accessible from browser without client installation. VAL-UI-002: Login with admin/admin succeeds, dashboard shows connected state. VAL-CROSS-004: Deep link /backtest loads FreqUI backtest page via SPA routing."
+}

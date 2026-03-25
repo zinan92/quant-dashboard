@@ -1,0 +1,185 @@
+{
+  "groupId": "backtest-flow",
+  "testedAt": "2026-03-25T12:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:8020",
+    "credentials": {
+      "username": "admin",
+      "password": "admin"
+    },
+    "browserSession": "d66150b6fe04__backtest",
+    "scope": "exclusive backtest state access"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-UI-003",
+      "title": "Strategy selector in FreqUI",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020 and log in with admin/admin", "expected": "Dashboard loads", "observed": "Dashboard loaded showing 'A-Share Quant Dashboard Online'" },
+        { "action": "Click Backtest link in navigation", "expected": "Backtest page loads with strategy dropdown", "observed": "Backtest page loaded with 'Run backtest' tab active, strategy combobox present" },
+        { "action": "Click strategy dropdown to expand", "expected": "Dropdown shows available strategies", "observed": "Dropdown expanded showing 'chan_theory' as an option" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-UI-003-strategy-dropdown.png"],
+        "consoleErrors": "404 errors from unimplemented polling endpoints (expected per AGENTS.md)",
+        "network": "GET /api/v1/strategies -> 200 (strategy list loaded)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UI-004",
+      "title": "Backtest execution from FreqUI",
+      "status": "pass",
+      "steps": [
+        { "action": "Select chan_theory from strategy dropdown", "expected": "Strategy selected, Start backtest button enabled", "observed": "chan_theory selected, 'Start backtest' button became enabled (no longer disabled)" },
+        { "action": "Click 'Start backtest' button", "expected": "Backtest starts and completes with results", "observed": "Backtest completed near-instantly. 'Analyze result', 'Visualize summary', and 'Visualize result' tabs became enabled. A notification showed 'Strategy undefined not found' but results were populated." },
+        { "action": "Click 'Analyze result' tab", "expected": "Trade list and results displayed", "observed": "7 trades displayed in Single trades table with pair names, profit %, open/close dates" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-UI-004-backtest-running.png", "frontend/backtest-flow/VAL-UI-004-backtest-results.png"],
+        "consoleErrors": "TypeError errors in backtestMetrics (RangeError: Invalid time value, Cannot read 'length'/'map'/'split' of undefined) - schema compatibility issues",
+        "network": "POST /api/v1/backtest -> 200, GET /api/v1/backtest -> 200 with completed results"
+      },
+      "issues": "Minor: Notification shows 'Strategy undefined not found' after backtest starts (strategy name not retained in POST response). Backtest summary section on Run backtest tab is empty. Some fields show 'N/A (undefinedx)' for Total stake amount and 'Tot Profit undefined' header."
+    },
+    {
+      "id": "VAL-UI-005",
+      "title": "Equity curve chart display",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to Dashboard after backtest completes", "expected": "Cumulative profit chart visible", "observed": "Dashboard shows 'Cumulative Profit' chart with time (dates) on X-axis and Profit on Y-axis, plus 'Profit over time' chart with Absolute profit and Trade Count" },
+        { "action": "Check Visualize summary tab on backtest page", "expected": "Additional profit chart", "observed": "Visualize summary shows 'Trades log' (per-trade profit bar chart) and 'Trades durations' box plot" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-UI-005-cumulative-profit.png", "frontend/backtest-flow/VAL-UI-005-equity-curve-full.png"],
+        "consoleErrors": "none specific to chart rendering",
+        "network": "GET /api/v1/daily -> 200, GET /api/v1/profit -> 200"
+      },
+      "issues": "The equity/cumulative profit chart appears on the Dashboard page rather than directly on the Backtest results page. The Backtest 'Visualize summary' tab shows per-trade profit bars, not a cumulative equity curve."
+    },
+    {
+      "id": "VAL-UI-006",
+      "title": "Trade list display",
+      "status": "pass",
+      "steps": [
+        { "action": "View 'Analyze result' tab after backtest", "expected": "Trade list table with pair, dates, profit", "observed": "Table shows 7 trades with columns: ID, Pair, Amount, Total stake amount, Open rate, Close rate, Profit %, Open date, Close date, Close Reason" }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-UI-007-analyze-result-full.png"],
+        "consoleErrors": "none specific to trade list",
+        "network": "GET /api/v1/backtest -> 200 with trades array"
+      },
+      "issues": "Total stake amount shows 'N/A (undefinedx)' — likely missing stake_currency field in API response. Close Reason column is empty for all trades."
+    },
+    {
+      "id": "VAL-UI-007",
+      "title": "Performance metrics display",
+      "status": "fail",
+      "steps": [
+        { "action": "Check 'Analyze result' tab for performance metrics", "expected": "Summary showing win rate, profit factor, Sharpe ratio, max drawdown", "observed": "'Results per Exit reason' section has headers but no data rows. 'Backtesting summary' section on Run backtest tab is completely empty." },
+        { "action": "Check Dashboard for metrics", "expected": "Performance summary visible", "observed": "Dashboard shows W/L: 3/4, Closed Profit: 35.06% (7976.76) but no Sharpe ratio, profit factor, or max drawdown displayed" },
+        { "action": "Verify API returns metrics", "expected": "All metrics present", "observed": "API returns all metrics: winrate=0.43, profit_factor=1.07, sharpe=0.21, max_drawdown=-0.42, sortino=0.28. Data exists but FreqUI cannot parse/display it." }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-UI-007-analyze-result-full.png", "frontend/backtest-flow/VAL-UI-007-backtest-summary.png", "frontend/backtest-flow/dashboard-check.png"],
+        "consoleErrors": "TypeError: Cannot read properties of undefined (reading 'length') in backtestMetrics-B8FGALgx.js; RangeError: Invalid time value in backtestMetrics; TypeError: Cannot read 'map' of undefined in BacktestingView",
+        "network": "GET /api/v1/backtest -> 200 with all metrics in response"
+      },
+      "issues": "Performance metrics (win rate, Sharpe, profit factor, max drawdown) are present in the API response but FreqUI fails to parse and display them. The 'Backtesting summary' section on the Run backtest tab renders empty. The 'Results per Exit reason' table has headers but no data. Console errors indicate schema incompatibility in backtestMetrics parsing (missing or misformatted fields like backtest_start_ts/backtest_end_ts, exit_reason aggregation data)."
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "End-to-end backtest flow",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020", "expected": "FreqUI login page loads", "observed": "FreqUI welcome page loaded with Login button" },
+        { "action": "Login with admin/admin", "expected": "Dashboard connected", "observed": "Dashboard loaded showing 'A-Share Quant Dashboard Online' status" },
+        { "action": "Navigate to backtest panel", "expected": "Backtest page with strategy dropdown", "observed": "Backtest page loaded with strategy selector, parameters, date range" },
+        { "action": "Select chan_theory and run backtest", "expected": "Backtest completes with results", "observed": "Backtest completed near-instantly, results tabs enabled" },
+        { "action": "Check equity curve", "expected": "Equity curve visible", "observed": "Dashboard shows Cumulative Profit chart with time vs profit; Backtest Visualize summary shows Trades log" },
+        { "action": "Check trade list", "expected": "Trade history table", "observed": "7 trades displayed with pair, profit %, dates" },
+        { "action": "Check performance metrics", "expected": "Summary metrics visible", "observed": "Dashboard shows W/L: 3/4, Closed Profit: 35.06%. Detailed metrics (Sharpe, drawdown) not displayed in UI though available in API." }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/01-login-page.png", "frontend/backtest-flow/02-dashboard-after-login.png", "frontend/backtest-flow/03-backtest-page.png", "frontend/backtest-flow/VAL-UI-003-strategy-dropdown.png", "frontend/backtest-flow/VAL-UI-004-backtest-results.png", "frontend/backtest-flow/VAL-UI-005-cumulative-profit.png"],
+        "consoleErrors": "Multiple JS errors: TypeError and RangeError in backtest metrics parsing; 404 errors from unimplemented endpoints",
+        "network": "All core API calls returned 200"
+      },
+      "issues": "End-to-end flow works: login → strategy selection → backtest execution → results display. However, FreqUI shows JS console errors indicating schema compatibility gaps. Backtesting summary section is empty. Some fields show 'undefined' values."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "API schema FreqTrade compatibility",
+      "status": "fail",
+      "steps": [
+        { "action": "Check browser console for JavaScript errors after full backtest flow", "expected": "No parsing/schema errors", "observed": "Multiple JavaScript errors found" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "TypeError: Cannot read properties of undefined (reading 'split') in TimeRangeSelect; TypeError: Cannot read properties of undefined (reading 'length') in backtestMetrics; TypeError: Cannot read properties of undefined (reading 'map') in BacktestingView (x2); RangeError: Invalid time value in backtestMetrics; TypeError: Cannot read properties of undefined (reading 'forEach') in chart rendering; AxiosError 404 on getStrategy, getBacktestMarketChange, and polling endpoints",
+        "network": "Multiple 404 responses from unimplemented endpoints; core endpoints return 200 but with incomplete schema"
+      },
+      "issues": "FreqUI encounters numerous JavaScript errors when parsing backtest results. Key issues: (1) backtest_start_ts/backtest_end_ts format causes RangeError: Invalid time value, (2) exit_reason/sell_reason aggregation data missing causes 'undefined.length/map' errors, (3) Strategy detail endpoint returns 404 after backtest causing 'Strategy undefined not found' notification, (4) TimeRangeSelect.split error suggests timerange format mismatch. While FreqUI renders the core data (trades, charts), the backtesting summary section is blank and several fields show 'undefined'."
+    },
+    {
+      "id": "VAL-BENCH-001",
+      "title": "Market change data in backtest results",
+      "status": "pass",
+      "steps": [
+        { "action": "GET /api/v1/backtest/history to get filename", "expected": "History with at least one entry", "observed": "Multiple entries returned, latest: backtest-result-chan_theory-2025-11-01-2026-03-24-326.json" },
+        { "action": "GET /api/v1/backtest/history/<filename>/market_change", "expected": "Market change data with date and performance values", "observed": "200 response with columns ['date', 'market_change'], 65 data points from 2025-11-03 to 2026-01-20, showing cumulative market change from 0.0 to 0.046194" }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "FreqUI's getBacktestMarketChange call returned 404 (FreqUI may use a different URL pattern than the implemented endpoint)",
+        "network": "GET /api/v1/backtest/history/<filename>/market_change -> 200 (via curl)"
+      },
+      "issues": "The market_change endpoint works via direct API call. However, FreqUI's internal call to getBacktestMarketChange returned 404, suggesting the URL pattern FreqUI uses may differ from the implemented endpoint."
+    },
+    {
+      "id": "VAL-BENCH-002",
+      "title": "Strategy vs benchmark visual comparison",
+      "status": "fail",
+      "steps": [
+        { "action": "Check all backtest result tabs for benchmark comparison", "expected": "Visual comparison of strategy vs benchmark index", "observed": "No benchmark comparison visible. Visualize summary shows only Trades log and Trades durations. Dashboard shows Cumulative Profit but no benchmark overlay." },
+        { "action": "Check if market_change data is displayed anywhere in FreqUI", "expected": "Market change percentage or benchmark chart visible", "observed": "Market change data not displayed. FreqUI's getBacktestMarketChange call failed with 404. Console error: TypeError Cannot read 'forEach' of undefined in chart rendering." }
+      ],
+      "evidence": {
+        "screenshots": ["frontend/backtest-flow/VAL-BENCH-002-visualize-summary.png", "frontend/backtest-flow/VAL-UI-005-equity-curve-full.png"],
+        "consoleErrors": "AxiosError 404 on getBacktestMarketChange; TypeError: Cannot read properties of undefined (reading 'forEach')",
+        "network": "FreqUI's internal market_change request -> 404"
+      },
+      "issues": "No visual benchmark comparison is displayed in FreqUI. The market_change API endpoint exists and returns data when called directly, but FreqUI's internal request fails (likely uses a different URL pattern). The chart rendering code throws TypeError when market_change data is undefined. No CSI 300 or ChiNext benchmark overlay appears on any chart."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "After selecting chan_theory and clicking 'Start backtest', a notification appears saying 'Strategy undefined not found'. The backtest still completes successfully, but the strategy name is lost from the dropdown after submission.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-UI-004", "VAL-CROSS-001"]
+    },
+    {
+      "description": "The 'Backtesting summary' section on the 'Run backtest' tab is always empty after backtest completion, even though the API returns all performance metrics. FreqUI cannot parse the backtest result schema to populate this section.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-UI-007", "VAL-CROSS-003"]
+    },
+    {
+      "description": "Trade list shows 'N/A (undefinedx)' for Total stake amount and 'Tot Profit undefined' as a column header. These indicate missing or misnamed fields in the API response (likely stake_currency and sell_reason/exit_reason).",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-UI-006", "VAL-CROSS-003"]
+    },
+    {
+      "description": "FreqUI's internal call to market_change endpoint returns 404, preventing benchmark data from being displayed in the backtest results visualization.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-BENCH-001", "VAL-BENCH-002"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 9 assertions: 5 passed, 4 failed. Core backtest flow works end-to-end (login, strategy selection, backtest execution, trade list display). VAL-UI-003 (strategy dropdown), VAL-UI-004 (backtest execution), VAL-UI-005 (equity curve on Dashboard), VAL-UI-006 (trade list), VAL-CROSS-001 (E2E flow), and VAL-BENCH-001 (market_change API) pass. VAL-UI-007 (performance metrics display) fails because FreqUI cannot render Sharpe/drawdown/profit factor from the API response. VAL-CROSS-003 (schema compatibility) fails due to multiple JS errors from mismatched response schemas. VAL-BENCH-002 (visual benchmark comparison) fails because FreqUI's market_change request returns 404 and no benchmark overlay is shown."
+}

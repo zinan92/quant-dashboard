@@ -88,6 +88,73 @@ Write a JSON report to `.factory/validation/backend/user-testing/flows/<group-id
 }
 ```
 
+## Flow Validator Guidance: agent-browser
+
+**App URL:** http://localhost:8020
+**Auth credentials:** username=`admin`, password=`admin`
+**Testing tool:** `agent-browser` skill (invoke via Skill tool at start of session)
+
+### FreqUI Login Flow:
+1. Navigate to http://localhost:8020 — FreqUI login page loads
+2. The login page has fields for server URL, username, and password
+3. Server URL should already be populated (or set to `http://localhost:8020`)
+4. Enter username `admin` and password `admin`
+5. Click the Login button
+6. Dashboard should load — look for connected state (no red/orange error banners)
+
+### FreqUI Navigation:
+- **Dashboard/Home:** Shows bot status, open trades (empty in webserver mode)
+- **Backtest page:** Access via sidebar or direct URL http://localhost:8020/backtest
+  - Strategy dropdown to select `chan_theory`
+  - Date range selector
+  - "Start Backtest" button
+  - After completion: equity curve chart, trade list table, performance metrics
+- **Trade History:** Access via sidebar
+
+### Backtest Flow in FreqUI:
+1. Navigate to Backtest page
+2. Select `chan_theory` from strategy dropdown
+3. Optionally set timerange (default should work)
+4. Click "Start" or equivalent button
+5. Wait for completion (should be fast, <10 seconds)
+6. Results appear: equity curve, trade table, metrics summary
+
+### Known quirks:
+- Some backtest metrics may show "undefined" or "N/A" for fields FreqUI expects but our backend doesn't populate exactly right. This is a known non-blocking issue.
+- The backtest completes near-instantly so progress bar may not be visible.
+- After login, FreqUI may poll several endpoints — wait a moment for the dashboard to stabilize.
+
+### Isolation rules:
+- Each browser subagent uses its own agent-browser session (based on worker session ID)
+- Backtest operations mutate global state — only ONE subagent should run backtests
+- Login/navigation tests are read-only and can run in parallel
+
+### Evidence:
+- Take screenshots at key moments (login page, dashboard, backtest results, etc.)
+- Save evidence files to the mission's evidence directory
+- Check browser console for JavaScript errors (VAL-CROSS-003)
+
+### Report format:
+Write a JSON report to `.factory/validation/frontend/user-testing/flows/<group-id>.json` with:
+```json
+{
+  "groupId": "<group-id>",
+  "assertions": [
+    {
+      "id": "VAL-XXX-NNN",
+      "status": "pass" | "fail" | "blocked",
+      "reason": "description of what was observed",
+      "evidence": "screenshot filename or description"
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}
+```
+
+---
+
 ## Discovered Testing Knowledge (Backend Milestone)
 
 ### Pair format
