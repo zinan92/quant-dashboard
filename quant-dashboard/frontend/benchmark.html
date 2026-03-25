@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Comparison - A-Share Quant Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            color: #2d3748;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .stat-card .value.positive {
+            color: #48bb78;
+        }
+        
+        .stat-card .value.negative {
+            color: #f56565;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .error {
+            background: #fed7d7;
+            border: 2px solid #fc8181;
+            border-radius: 8px;
+            padding: 16px;
+            color: #742a2a;
+            margin: 20px 0;
+        }
+        
+        .info {
+            background: #bee3f8;
+            border: 2px solid #4299e1;
+            border-radius: 8px;
+            padding: 16px;
+            color: #2c5282;
+            margin: 20px 0;
+        }
+        
+        #chart {
+            width: 100%;
+            height: 600px;
+        }
+        
+        .controls {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .controls select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .controls button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .controls button:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Benchmark Comparison</h1>
+            <p>Compare Chan Theory strategy performance against CSI 300 (沪深300) benchmark</p>
+        </div>
+        
+        <div class="controls">
+            <label for="backtestSelect" style="font-weight: 500; color: #2d3748;">Select Backtest:</label>
+            <select id="backtestSelect">
+                <option value="">-- Loading backtests... --</option>
+            </select>
+            <button onclick="loadComparison()">Load Comparison</button>
+        </div>
+        
+        <div id="loadingIndicator" class="loading">
+            Loading backtest data...
+        </div>
+        
+        <div id="errorContainer"></div>
+        
+        <div id="statsContainer" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Strategy Return</div>
+                    <div class="value" id="strategyReturn">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Benchmark Return</div>
+                    <div class="value" id="benchmarkReturn">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Outperformance</div>
+                    <div class="value" id="outperformance">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Period</div>
+                    <div class="value" id="period" style="font-size: 16px;">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chartContainer" class="chart-container" style="display: none;">
+            <div id="chart"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let authToken = '';
+        let backtestHistory = [];
+        let currentBacktestFilename = '';
+
+        // Get auth token from localStorage (set by FreqUI)
+        function getAuthToken() {
+            try {
+                // Try to get token from FreqUI's localStorage
+                const ftbotState = localStorage.getItem('ftbot');
+                if (ftbotState) {
+                    const state = JSON.parse(ftbotState);
+                    if (state.accessToken) {
+                        return state.accessToken;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to get auth token from localStorage:', e);
+            }
+            return '';
+        }
+
+        // Authenticate with API
+        async function authenticate() {
+            authToken = getAuthToken();
+            
+            // If no token in localStorage, try to login with default credentials
+            if (!authToken) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/v1/token/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa('admin:admin')
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        authToken = data.access_token;
+                    } else {
+                        showError('Authentication failed. Please log in to FreqUI first, or ensure default credentials (admin/admin) work.');
+                        return false;
+                    }
+                } catch (e) {
+                    showError('Failed to authenticate: ' + e.message);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Fetch backtest history
+        async function fetchBacktestHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/backtest/history`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                backtestHistory = await response.json();
+                
+                if (!Array.isArray(backtestHistory) || backtestHistory.length === 0) {
+                    showInfo('No backtest results found. Please run a backtest in FreqUI first.');
+                    return;
+                }
+                
+                // Populate backtest selector
+                const select = document.getElementById('backtestSelect');
+                select.innerHTML = backtestHistory.map((bt, idx) => {
+                    const strategy = bt.strategy || 'chan_theory';
+                    const startDate = bt.timerange?.split('-')[0] || '';
+                    const endDate = bt.timerange?.split('-')[1] || '';
+                    const label = `${strategy} (${startDate} to ${endDate})`;
+                    return `<option value="${bt.filename}">${label}</option>`;
+                }).join('');
+                
+                // Auto-load the latest backtest
+                if (backtestHistory.length > 0) {
+                    currentBacktestFilename = backtestHistory[0].filename;
+                    select.value = currentBacktestFilename;
+                    loadComparison();
+                }
+                
+            } catch (e) {
+                showError('Failed to fetch backtest history: ' + e.message);
+            }
+        }
+
+        // Load comparison data
+        async function loadComparison() {
+            const select = document.getElementById('backtestSelect');
+            const filename = select.value;
+            
+            if (!filename) {
+                showError('Please select a backtest.');
+                return;
+            }
+            
+            currentBacktestFilename = filename;
+            
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('errorContainer').innerHTML = '';
+            document.getElementById('chartContainer').style.display = 'none';
+            document.getElementById('statsContainer').style.display = 'none';
+            
+            try {
+                // Fetch both strategy daily data and market change data in parallel
+                const [dailyResponse, marketChangeResponse] = await Promise.all([
+                    fetch(`${API_BASE}/api/v1/daily`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    }),
+                    fetch(`${API_BASE}/api/v1/backtest/history/${filename}/market_change`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    })
+                ]);
+                
+                if (!dailyResponse.ok) {
+                    throw new Error(`Failed to fetch strategy data: HTTP ${dailyResponse.status}`);
+                }
+                
+                if (!marketChangeResponse.ok) {
+                    throw new Error(`Failed to fetch benchmark data: HTTP ${marketChangeResponse.status}`);
+                }
+                
+                const dailyData = await dailyResponse.json();
+                const marketChangeData = await marketChangeResponse.json();
+                
+                // Process and display data
+                renderComparison(dailyData, marketChangeData);
+                
+            } catch (e) {
+                showError('Failed to load comparison data: ' + e.message);
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }
+
+        // Render comparison chart
+        function renderComparison(dailyData, marketChangeData) {
+            if (!dailyData.data || dailyData.data.length === 0) {
+                showError('No strategy data available for this backtest.');
+                return;
+            }
+            
+            if (!marketChangeData.data || marketChangeData.data.length === 0) {
+                showInfo('Benchmark data not available. CSI 300 data may not be seeded. The strategy performance is shown below.');
+            }
+            
+            // Process strategy data (convert rel_profit to percentage)
+            const strategyDates = dailyData.data.map(d => d.date);
+            const strategyReturns = dailyData.data.map(d => d.rel_profit * 100); // Convert to percentage
+            
+            // Process benchmark data (already in percentage as decimal, convert to percentage)
+            const benchmarkDates = marketChangeData.data.map(d => {
+                const ts = d[0];
+                const date = new Date(ts);
+                return date.toISOString().split('T')[0];
+            });
+            const benchmarkReturns = marketChangeData.data.map(d => d[1] * 100); // Convert to percentage
+            
+            // Calculate summary stats
+            const strategyFinalReturn = strategyReturns[strategyReturns.length - 1] || 0;
+            const benchmarkFinalReturn = benchmarkReturns[benchmarkReturns.length - 1] || 0;
+            const outperformance = strategyFinalReturn - benchmarkFinalReturn;
+            
+            // Update stats cards
+            document.getElementById('strategyReturn').textContent = strategyFinalReturn.toFixed(2) + '%';
+            document.getElementById('strategyReturn').className = 'value ' + (strategyFinalReturn >= 0 ? 'positive' : 'negative');
+            
+            document.getElementById('benchmarkReturn').textContent = benchmarkFinalReturn.toFixed(2) + '%';
+            document.getElementById('benchmarkReturn').className = 'value ' + (benchmarkFinalReturn >= 0 ? 'positive' : 'negative');
+            
+            document.getElementById('outperformance').textContent = (outperformance >= 0 ? '+' : '') + outperformance.toFixed(2) + '%';
+            document.getElementById('outperformance').className = 'value ' + (outperformance >= 0 ? 'positive' : 'negative');
+            
+            const startDate = strategyDates[0] || '--';
+            const endDate = strategyDates[strategyDates.length - 1] || '--';
+            document.getElementById('period').textContent = `${startDate} to ${endDate}`;
+            
+            document.getElementById('statsContainer').style.display = 'block';
+            
+            // Create Plotly traces
+            const traces = [
+                {
+                    x: strategyDates,
+                    y: strategyReturns,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Chan Theory Strategy',
+                    line: {
+                        color: '#667eea',
+                        width: 3
+                    },
+                    hovertemplate: '<b>Strategy</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>'
+                }
+            ];
+            
+            // Only add benchmark trace if data exists
+            if (benchmarkReturns.length > 0) {
+                traces.push({
+                    x: benchmarkDates,
+                    y: benchmarkReturns,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'CSI 300 Benchmark',
+                    line: {
+                        color: '#f56565',
+                        width: 2,
+                        dash: 'dash'
+                    },
+                    hovertemplate: '<b>CSI 300</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>'
+                });
+            }
+            
+            // Layout configuration
+            const layout = {
+                title: {
+                    text: 'Cumulative Return Comparison',
+                    font: {
+                        size: 20,
+                        weight: 600,
+                        color: '#2d3748'
+                    }
+                },
+                xaxis: {
+                    title: 'Date',
+                    gridcolor: '#e2e8f0',
+                    showgrid: true
+                },
+                yaxis: {
+                    title: 'Cumulative Return (%)',
+                    gridcolor: '#e2e8f0',
+                    showgrid: true,
+                    zeroline: true,
+                    zerolinecolor: '#cbd5e0',
+                    zerolinewidth: 2
+                },
+                hovermode: 'x unified',
+                plot_bgcolor: '#f7fafc',
+                paper_bgcolor: 'white',
+                font: {
+                    family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                },
+                legend: {
+                    x: 0.02,
+                    y: 0.98,
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    bordercolor: '#cbd5e0',
+                    borderwidth: 1
+                },
+                margin: {
+                    l: 60,
+                    r: 40,
+                    t: 60,
+                    b: 60
+                }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                displaylogo: false
+            };
+            
+            Plotly.newPlot('chart', traces, layout, config);
+            
+            document.getElementById('chartContainer').style.display = 'block';
+        }
+
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error"><strong>Error:</strong> ${message}</div>`;
+        }
+
+        function showInfo(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="info"><strong>Info:</strong> ${message}</div>`;
+        }
+
+        // Initialize on page load
+        async function init() {
+            const authenticated = await authenticate();
+            if (authenticated) {
+                await fetchBacktestHistory();
+            }
+        }
+
+        // Start initialization
+        init();
+    </script>
+</body>
+</html>
