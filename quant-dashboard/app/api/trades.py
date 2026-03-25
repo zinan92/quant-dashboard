@@ -101,8 +101,6 @@ def get_trades(
         # Calculate fees (0.03% commission on each side)
         stake_amount = t["entry_price"] * t["shares"]
         fee_rate = 0.0003
-        fee_open = stake_amount * fee_rate
-        fee_close = t["exit_price"] * t["shares"] * fee_rate
 
         trades_output.append({
             "trade_id": t["trade_id"],

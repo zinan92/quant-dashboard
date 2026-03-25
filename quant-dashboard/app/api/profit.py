@@ -118,7 +118,7 @@ def get_profit(
     for t in trades:
         pair = t["symbol"]
         pair_profits[pair] = pair_profits.get(pair, 0.0) + t["pnl"]
-    best_pair = max(pair_profits, key=pair_profits.get) if pair_profits else ""
+    best_pair = max(pair_profits, key=lambda x: pair_profits[x]) if pair_profits else ""
     best_rate = pair_profits.get(best_pair, 0.0) / latest_run["initial_capital"]
 
     # Win rate and profit factor

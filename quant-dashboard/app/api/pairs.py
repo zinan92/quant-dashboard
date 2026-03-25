@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -220,9 +219,6 @@ def get_plot_config(
 
     For Chan Theory, we display MACD indicator.
     """
-    # Load strategy YAML for plot config
-    strategy_file = Path(__file__).resolve().parent.parent.parent / "strategies" / "chan_theory.yaml"
-
     # Basic plot config for Chan Theory
     plot_config = {
         "chan_theory": {

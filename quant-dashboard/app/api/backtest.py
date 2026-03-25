@@ -435,7 +435,6 @@ def get_backtest_history_result(
     # Reconstruct the result
     metrics = json.loads(run["metrics_json"]) if isinstance(run.get("metrics_json"), str) else {}
     trades_data = _store.get_trades(run_id)
-    nav_data = _store.get_daily_nav(run_id)
 
     strategy_name = run["strategy"]
 
@@ -522,6 +521,6 @@ def _extract_run_id_from_filename(filename: str) -> int | None:
     for run in runs:
         run_filename = f"backtest-result-{run['strategy']}-{run['start_date']}-{run['end_date']}-{run['id']}.json"
         if run_filename == filename:
-            return run["id"]
+            return int(run["id"])
 
     return None
