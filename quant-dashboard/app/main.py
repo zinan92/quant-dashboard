@@ -93,10 +93,13 @@ frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
     # Serve benchmark comparison page BEFORE static mounts
     # Use /benchmark-comparison to avoid conflict with FreqUI's client-side /benchmark route
+    # Serve from committed source (frontend/benchmark.html) not gitignored build artifact
+    benchmark_html_path = Path(__file__).parent.parent / "frontend" / "benchmark.html"
+    
     @app.get("/benchmark-comparison")
     async def benchmark_comparison():
         """Serve benchmark comparison page."""
-        return FileResponse(frontend_dist / "benchmark.html")
+        return FileResponse(benchmark_html_path)
 
     # Mount static assets (JS, CSS, images, etc.)
     app.mount(
