@@ -152,6 +152,46 @@ Write a JSON report to `.factory/validation/streamlit-pivot/user-testing/flows/<
 
 ---
 
+## Flow Validator Guidance: shell (data-infra-fix)
+
+**Testing surface:** Shell commands — sqlite3 queries, code inspection (grep/read), CLI script execution
+**Tool:** No special skill needed — use Execute, Read, Grep tools directly
+**Project root:** `/Users/wendy/work/trading-co/ashare`
+**Database:** `data/market.db` (SQLite, use `sqlite3 data/market.db "<query>"` from project root)
+**Python venv:** `.venv/bin/python` from project root
+
+### What to test:
+- Code inspection: Check source files for specific values (retention days, INDEX_LIST contents, config defaults, cleanup invocation patterns)
+- Database queries: Verify trade_calendar date range/count, watchlist/stock_sectors row counts, pre-expansion stock preservation
+- CLI execution: Run pytest collect, run expansion script
+
+### Isolation rules:
+- All assertions are read-only (code inspection + database SELECT queries + non-destructive CLI commands)
+- No shared mutable state between assertions
+- **Exception:** VAL-INFRA-013 (expansion script) could modify the database if run — but the expansion was already run during implementation. Verify the script exists and runs without error in a safe way (--help, dry-run, or just check exit code if it's idempotent).
+- All subagents can run in parallel since they only read
+
+### Evidence format:
+Write a JSON report to `.factory/validation/data-infra-fix/user-testing/flows/<group-id>.json` with:
+```json
+{
+  "groupId": "<group-id>",
+  "assertions": [
+    {
+      "id": "VAL-INFRA-NNN",
+      "status": "pass" | "fail" | "blocked",
+      "reason": "description of what was observed",
+      "evidence": "command output or code snippet"
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["sqlite3", "grep", "python"]
+}
+```
+
+---
+
 ## Discovered Testing Knowledge (Backend Milestone)
 
 ### Pair format

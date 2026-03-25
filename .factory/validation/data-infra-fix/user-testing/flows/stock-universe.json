@@ -1,0 +1,112 @@
+{
+  "groupId": "stock-universe",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "surface": "shell",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "pythonVenv": ".venv/bin/python"
+  },
+  "toolsUsed": ["sqlite3", "grep", "python"],
+  "assertions": [
+    {
+      "id": "VAL-INFRA-007",
+      "title": "Stock Universe Expanded to ~1000 Symbols",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT COUNT(DISTINCT ticker) FROM watchlist;\"",
+          "expected": ">= 800 distinct tickers",
+          "observed": "1938 distinct tickers"
+        },
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT category, COUNT(*) FROM watchlist GROUP BY category;\"",
+          "expected": "Watchlist includes index constituent stocks",
+          "observed": "1525 entries with category '指数成份股' plus 413 from original sector categories, totaling 1938"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "queryOutput": "COUNT(DISTINCT ticker) = 1938; categories breakdown shows 1525 index constituents + 413 original sector stocks",
+        "evidenceFiles": ["data-infra-fix/stock-universe/VAL-INFRA-007-watchlist-count.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INFRA-008",
+      "title": "Constituent Merge Does Not Drop Existing Watchlist Stocks",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT ticker FROM watchlist WHERE ticker IN ('000001', '600519', '000002', '600036', '601318') ORDER BY ticker;\"",
+          "expected": "All 5 well-known original stocks present",
+          "observed": "All 5 returned: 000001, 000002, 600036, 600519, 601318"
+        },
+        {
+          "action": "Inspect scripts/expand_stock_universe.py for INSERT OR IGNORE usage",
+          "expected": "INSERT OR IGNORE or UPSERT to avoid dropping rows",
+          "observed": "Line 167: INSERT OR IGNORE INTO watchlist; merge_with_watchlist() computes new_tickers = constituents - existing, only inserting new entries"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "codeInspection": "expand_stock_universe.py uses INSERT OR IGNORE at lines 167, 236, 308, 367. merge_with_watchlist() preserves existing by computing diff only.",
+        "evidenceFiles": ["data-infra-fix/stock-universe/VAL-INFRA-008-merge-preservation.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INFRA-012",
+      "title": "Stock Sectors Table Updated for New Stocks",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run: sqlite3 data/market.db \"SELECT COUNT(DISTINCT ticker) FROM stock_sectors;\"",
+          "expected": ">= 800 distinct tickers in stock_sectors",
+          "observed": "1938 distinct tickers in stock_sectors"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "queryOutput": "COUNT(DISTINCT ticker) FROM stock_sectors = 1938",
+        "evidenceFiles": ["data-infra-fix/stock-universe/VAL-INFRA-012-stock-sectors-count.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INFRA-013",
+      "title": "Expansion Script Is Executable from Command Line",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check scripts/expand_stock_universe.py exists",
+          "expected": "File exists with shebang and __main__ entry point",
+          "observed": "File exists at scripts/expand_stock_universe.py with #!/usr/bin/env python3 shebang and if __name__ == '__main__': main() entry point"
+        },
+        {
+          "action": "Validate Python syntax: python3 -c \"import ast; ast.parse(...)\"",
+          "expected": "Valid Python syntax",
+          "observed": "SYNTAX_VALID=yes"
+        },
+        {
+          "action": "Test import: .venv/bin/python -c \"from scripts.expand_stock_universe import StockUniverseExpander, main\"",
+          "expected": "Imports without error",
+          "observed": "IMPORT_OK=yes, HAS_MAIN=yes, HAS_CLASS=yes — all dependencies resolved"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "codeInspection": "Script has shebang (#!/usr/bin/env python3), main() function, StockUniverseExpander class, if __name__ == '__main__' guard. Uses INSERT OR IGNORE for idempotency.",
+        "evidenceFiles": ["data-infra-fix/stock-universe/VAL-INFRA-013-script-executable.txt"]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed. VAL-INFRA-007: watchlist has 1938 distinct tickers (>= 800 required). VAL-INFRA-008: all pre-existing stocks preserved via INSERT OR IGNORE. VAL-INFRA-012: stock_sectors has 1938 distinct tickers (>= 800 required). VAL-INFRA-013: expansion script exists, has valid syntax, imports cleanly, and has CLI entry point."
+}

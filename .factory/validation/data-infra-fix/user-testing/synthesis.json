@@ -1,0 +1,43 @@
+{
+  "milestone": "data-infra-fix",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 13,
+    "passed": 11,
+    "failed": 2,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-INFRA-001",
+    "VAL-INFRA-002",
+    "VAL-INFRA-005",
+    "VAL-INFRA-006",
+    "VAL-INFRA-007",
+    "VAL-INFRA-008",
+    "VAL-INFRA-009",
+    "VAL-INFRA-010",
+    "VAL-INFRA-011",
+    "VAL-INFRA-012",
+    "VAL-INFRA-013"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-INFRA-003",
+      "reason": "Trade calendar only spans 2026-01-01 to 2026-12-31. Code correctly sets start_date='20210101' in calendar_updater.py but update_trade_calendar() has not been re-executed to populate the 2021-2025 date range in the database."
+    },
+    {
+      "id": "VAL-INFRA-004",
+      "reason": "Only 242 trading days in calendar (expected 1,300-1,700 for 6-year range). Root cause same as VAL-INFRA-003: calendar database only covers 2026 since update_trade_calendar() was not re-run after the code change."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added 'Flow Validator Guidance: shell (data-infra-fix)' section for shell-based validation of infrastructure assertions",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}

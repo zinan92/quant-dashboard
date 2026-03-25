@@ -1,0 +1,108 @@
+{
+  "groupId": "calendar-indices",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "surface": "shell",
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "readOnly": true
+  },
+  "toolsUsed": ["sqlite3", "grep", "read"],
+  "assertions": [
+    {
+      "id": "VAL-INFRA-003",
+      "title": "Trade Calendar Covers 2021 Through 2026",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "sqlite3 data/market.db \"SELECT MIN(date), MAX(date) FROM trade_calendar;\"",
+          "expected": "min <= '2021-01-04' and max >= '2026-12-31'",
+          "observed": "min = '2026-01-01', max = '2026-12-31'"
+        },
+        {
+          "action": "Inspect calendar_updater.py update_trade_calendar()",
+          "expected": "start_date covers 2021",
+          "observed": "Code correctly has start_date = '20210101', but database only has 2026 data — calendar update not re-run after code fix"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "network": "n/a",
+        "files": ["data-infra-fix/calendar-indices/VAL-INFRA-003-query-output.txt"]
+      },
+      "issues": "Trade calendar only spans 2026-01-01 to 2026-12-31. The code in calendar_updater.py correctly sets start_date='20210101', but the database has not been updated with the full 2021-2027 range. The update_trade_calendar() function needs to be executed to populate the calendar."
+    },
+    {
+      "id": "VAL-INFRA-004",
+      "title": "Trade Calendar Contains Reasonable Row Count",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "sqlite3 data/market.db \"SELECT COUNT(*) FROM trade_calendar WHERE is_trading_day = 1;\"",
+          "expected": "1,300-1,700 trading days",
+          "observed": "242 trading days"
+        },
+        {
+          "action": "sqlite3 data/market.db \"SELECT COUNT(*) FROM trade_calendar;\"",
+          "expected": ">= 2,000 total rows (trading + non-trading days over 6 years)",
+          "observed": "365 total rows (only 2026)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "network": "n/a",
+        "files": ["data-infra-fix/calendar-indices/VAL-INFRA-004-query-output.txt"]
+      },
+      "issues": "Only 242 trading days in the calendar (365 total rows for 2026 only). Expected 1,300-1,700 trading days across a 6-year range. Root cause is the same as VAL-INFRA-003: the calendar has not been repopulated after the code change to extend start_date to 2021."
+    },
+    {
+      "id": "VAL-INFRA-005",
+      "title": "INDEX_LIST Includes CSI 300, CSI 500, and CSI 1000",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read src/services/index_updater.py INDEX_LIST definition",
+          "expected": "8 entries including 000300.SH, 000905.SH, 000852.SH",
+          "observed": "INDEX_LIST has exactly 8 entries: 000001.SH, 399001.SZ, 399006.SZ, 000688.SH, 899050.BJ, 000300.SH, 000905.SH, 000852.SH"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "network": "n/a",
+        "files": ["data-infra-fix/calendar-indices/VAL-INFRA-005-index-list.txt"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INFRA-006",
+      "title": "Original 5 Indices Preserved in INDEX_LIST",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read src/services/index_updater.py INDEX_LIST definition",
+          "expected": "All 5 original indices present: 000001.SH, 399001.SZ, 399006.SZ, 000688.SH, 899050.BJ",
+          "observed": "All 5 original indices confirmed present in INDEX_LIST at positions 1-5"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a",
+        "network": "n/a",
+        "files": ["data-infra-fix/calendar-indices/VAL-INFRA-006-original-indices.txt"]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [
+    {
+      "description": "Trade calendar has not been repopulated after the code change to extend start_date to 2021. The code correctly sets start_date='20210101' in calendar_updater.py, but the database still only contains 2026 data. The update_trade_calendar() function needs to be executed to fix VAL-INFRA-003 and VAL-INFRA-004.",
+      "affectedAssertions": ["VAL-INFRA-003", "VAL-INFRA-004"],
+      "quickFixAttempted": "Read-only validation — did not attempt to run update_trade_calendar() as that would modify the database"
+    }
+  ],
+  "summary": "Tested 4 assertions: 2 passed (VAL-INFRA-005, VAL-INFRA-006), 2 failed (VAL-INFRA-003, VAL-INFRA-004). INDEX_LIST correctly includes all 8 indices (5 original + 3 new CSI indices). Trade calendar only covers 2026 despite code being updated to start from 2021 — the calendar update function has not been re-executed against the database."
+}
