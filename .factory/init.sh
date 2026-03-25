@@ -16,6 +16,13 @@ if [ -f quant-dashboard/requirements.txt ]; then
   cd ..
 fi
 
+# Install ashare test dependencies
+if [ -f ashare/requirements-dev.txt ]; then
+  cd ashare
+  .venv/bin/pip install pytest pytest-asyncio pytest-cov -q 2>/dev/null || true
+  cd ..
+fi
+
 # Verify ashare market.db is accessible
 if [ ! -f /Users/wendy/work/trading-co/ashare/data/market.db ]; then
   echo "WARNING: ashare market.db not found at expected path"
