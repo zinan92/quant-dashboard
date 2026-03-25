@@ -28,13 +28,12 @@ None.
 
 2. **Read existing code**: Before writing anything, read all existing files in the relevant directories (app/, src/, tests/) to understand current state and avoid conflicts.
 
-3. **Write tests first (RED)**: For every piece of functionality:
-   - Write pytest tests that cover the expected behavior
-   - Run `python3 -m pytest tests/ -v --tb=short -x` and confirm they FAIL (red)
-   - Cover: happy path, edge cases, error cases
+3. **Write comprehensive tests**: For every piece of functionality:
+   - Write pytest tests alongside implementation that cover: happy path, edge cases, error cases
+   - Tests may be written before or alongside implementation, but must exist before the feature is considered done
+   - Run `python3 -m pytest tests/ -v --tb=short -x` and confirm all pass
 
-4. **Implement (GREEN)**: Write the implementation code to make tests pass.
-   - Run tests again and confirm they PASS (green)
+4. **Verify implementation**:
    - For API endpoints: verify response schemas match FreqTrade format exactly
    - For strategy engine: verify signals are generated correctly on test data
 

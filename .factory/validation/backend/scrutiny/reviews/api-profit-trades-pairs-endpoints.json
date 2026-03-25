@@ -1,0 +1,62 @@
+{
+  "featureId": "api-profit-trades-pairs-endpoints",
+  "reviewedAt": "2026-03-25T03:35:00.000Z",
+  "commitId": "fb30cab",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "All 11 FreqTrade-compatible API endpoints (profit, daily, trades, status, performance, whitelist, blacklist, available_pairs, pair_candles, plot_config) are implemented with correct schemas, empty-state handling, JWT auth, and millisecond timestamps. 57 comprehensive tests pass alongside 228 existing tests with no regressions. Two minor dead-code issues and one duplicated utility function identified but none are blocking.",
+    "issues": [
+      {
+        "file": "quant-dashboard/app/api/trades.py",
+        "line": 10,
+        "severity": "non_blocking",
+        "description": "Unused `import json` in committed version (fb30cab). The import was later removed in an uncommitted change visible in `git diff`. Dead import in the committed code."
+      },
+      {
+        "file": "quant-dashboard/app/api/trades.py",
+        "line": 105,
+        "severity": "non_blocking",
+        "description": "Dead code: `fee_open = stake_amount * fee_rate` and `fee_close = t['exit_price'] * t['shares'] * fee_rate` are calculated but never referenced. The trade output uses raw rate values (fee_rate, fee_rate + 0.001) which is correct for FreqTrade schema, but the computed absolute fee amounts are unused."
+      },
+      {
+        "file": "quant-dashboard/app/api/pairs.py",
+        "line": 199,
+        "severity": "non_blocking",
+        "description": "Dead code: `strategy_file = Path(...)` is constructed in `get_plot_config()` but never used. The function returns a hardcoded dict. Also, the `strategy` parameter is accepted but ignored — config always returns chan_theory regardless of input."
+      },
+      {
+        "file": "quant-dashboard/app/api/profit.py",
+        "line": 24,
+        "severity": "non_blocking",
+        "description": "Duplicated utility: `_date_to_ms_epoch()` is copy-pasted identically in profit.py:24, trades.py:28, pairs.py:33, and backtest.py (existing). Should be extracted to a shared module (e.g., app/api/utils.py or app/utils.py) to reduce maintenance burden."
+      },
+      {
+        "file": "quant-dashboard/app/api/profit.py",
+        "line": 217,
+        "severity": "non_blocking",
+        "description": "The `timescale` query parameter on GET /daily is accepted but ignored. The endpoint returns all NAV data regardless of the timescale value. The docstring acknowledges this ('ignored for now'). Acceptable for MVP but should be documented as a known limitation."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md states 'Use pydantic models for all API request/response schemas' but none of the three new API modules (profit.py, trades.py, pairs.py) use Pydantic response models — they all return raw dict[str, Any]. This is consistent with the existing system.py and the response-side pattern in backtest.py, but it violates the documented convention. Either the convention should be relaxed to 'Use pydantic models for request schemas; responses may use plain dicts' or the endpoints should be updated to use Pydantic models.",
+      "evidence": "AGENTS.md line 'Use pydantic models for all API request/response schemas'. In profit.py, trades.py, pairs.py all endpoints return dict[str, Any]. system.py (existing) also returns raw dicts. Only backtest.py uses a Pydantic model (BacktestRequest) for the request body."
+    },
+    {
+      "area": "conventions",
+      "observation": "The `_date_to_ms_epoch()` utility function is duplicated 4 times across API modules. AGENTS.md or architecture.md could document a convention for shared utilities to prevent further proliferation.",
+      "evidence": "Identical function in profit.py:24, trades.py:28, pairs.py:33, and backtest.py. Each is a copy-paste of the same 6-line function."
+    },
+    {
+      "area": "conventions",
+      "observation": "The A-share commission model documented in AGENTS.md says '0.03% commission (min ¥5) + 0.1% stamp tax on sell'. The implementation in trades.py uses fee_open=0.0003 (0.03%) and fee_close=0.0013 (0.03% + 0.1%) which is correct for rate values, but the minimum ¥5 commission is not enforced. This is likely acceptable for the API display (FreqUI only shows the rate), but the actual backtest engine should enforce the minimum.",
+      "evidence": "trades.py:108 fee_rate=0.0003, line 118 fee_close=fee_rate+0.001. AGENTS.md: '0.03% commission (min ¥5) + 0.1% stamp tax on sell'."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. All 11 required FreqTrade-compatible API endpoints are correctly implemented with proper empty-state handling, JWT authentication, millisecond timestamps, and FreqTrade-compatible response schemas. 57 tests cover empty state, data scenarios, pagination, auth, and error cases. Full test suite (285 tests) passes with no regressions. Five non-blocking issues found: unused import (already fixed in uncommitted change), two dead code fragments, duplicated utility function, and ignored timescale parameter. Three shared-state observations noted regarding Pydantic convention gap, utility duplication, and commission model documentation."
+}
