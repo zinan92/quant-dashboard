@@ -1,46 +1,38 @@
 {
   "milestone": "historical-backfill",
-  "round": 1,
+  "round": 2,
   "status": "fail",
   "assertionsSummary": {
-    "total": 26,
-    "passed": 18,
-    "failed": 8,
+    "total": 8,
+    "passed": 4,
+    "failed": 4,
     "blocked": 0
   },
   "passedAssertions": [
-    "VAL-BACKFILL-004",
-    "VAL-BACKFILL-005",
-    "VAL-BACKFILL-008",
-    "VAL-BACKFILL-009",
-    "VAL-BACKFILL-010",
-    "VAL-BACKFILL-011",
-    "VAL-BACKFILL-013",
-    "VAL-BACKFILL-014",
-    "VAL-BACKFILL-015",
-    "VAL-BACKFILL-016",
-    "VAL-BACKFILL-017",
-    "VAL-BACKFILL-018",
-    "VAL-BACKFILL-019",
-    "VAL-BACKFILL-020",
-    "VAL-BACKFILL-022",
-    "VAL-CROSS-003",
-    "VAL-CROSS-005",
-    "VAL-CROSS-006"
+    "VAL-BACKFILL-003",
+    "VAL-BACKFILL-006",
+    "VAL-BACKFILL-007",
+    "VAL-BACKFILL-012"
   ],
   "failedAssertions": [
-    { "id": "VAL-BACKFILL-001", "reason": "341 pre-2021 stocks have data starting only from 2025-08-06, not 2021. Stock backfill not executed for expanded universe." },
-    { "id": "VAL-BACKFILL-002", "reason": "341 pre-2021 stocks have ~152 rows instead of >= 1100. Only 2 stocks (000001, 000002) have 1000+ rows." },
-    { "id": "VAL-BACKFILL-003", "reason": "5-year backfill prerequisite not met — most stocks only have ~155 days of data, cannot assess multi-year gap quality." },
-    { "id": "VAL-BACKFILL-006", "reason": "concept_daily MIN date 20260129, required <= 20240325. Only ~2 months of data, not 2 years. Script exists but not executed." },
-    { "id": "VAL-BACKFILL-007", "reason": "industry_daily MIN date 20260129, required <= 20240325. Only ~2 months of data, not 2 years. Script exists but not executed." },
-    { "id": "VAL-BACKFILL-012", "reason": "Only 423 distinct stocks in klines (DAY), need >= 800. Expanded universe (1938 stocks) not backfilled." },
-    { "id": "VAL-BACKFILL-021", "reason": "Post-2021 IPO stocks start from 2025-08-06, not their list_date. Backfill not executed for expanded universe." },
-    { "id": "VAL-CROSS-002", "reason": "Only 423 of 1938 watchlist stocks have daily kline data. 1612 pre-2021 stocks missing early data." }
+    {
+      "id": "VAL-BACKFILL-001",
+      "reason": "55 pre-2021 stocks have data starting after 2021-06-01. These are expanded universe stocks that were added to klines via daily updates but not historically backfilled to 2021."
+    },
+    {
+      "id": "VAL-BACKFILL-002",
+      "reason": "54 pre-2021 stocks have fewer than 1000 daily kline rows (most have only 147-152 rows from Aug 2025 daily updates). These are expanded universe stocks without historical backfill."
+    },
+    {
+      "id": "VAL-BACKFILL-021",
+      "reason": "34 of 201 post-2021 IPO stocks have data starting from 2025 instead of their list_date. 167 stocks are correctly backfilled. The 34 failures are expanded universe stocks not covered by backfill."
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "reason": "214 of 1614 pre-2021 watchlist stocks (13.3%) missing early data (threshold: >10 = fail). These are expanded universe stocks added but not historically backfilled."
+    }
   ],
   "blockedAssertions": [],
-  "appliedUpdates": [
-    { "target": "user-testing.md", "description": "Added 'Flow Validator Guidance: shell (historical-backfill)' section with testing surface, DB conventions, key data state, and isolation rules", "source": "setup" }
-  ],
-  "previousRound": null
+  "appliedUpdates": [],
+  "previousRound": ".factory/validation/historical-backfill/user-testing/synthesis-round1.json"
 }
