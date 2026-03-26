@@ -1,38 +1,39 @@
 {
   "milestone": "historical-backfill",
-  "round": 2,
+  "round": 3,
   "status": "fail",
   "assertionsSummary": {
-    "total": 8,
-    "passed": 4,
+    "total": 4,
+    "passed": 0,
     "failed": 4,
     "blocked": 0
   },
-  "passedAssertions": [
-    "VAL-BACKFILL-003",
-    "VAL-BACKFILL-006",
-    "VAL-BACKFILL-007",
-    "VAL-BACKFILL-012"
-  ],
+  "passedAssertions": [],
   "failedAssertions": [
     {
       "id": "VAL-BACKFILL-001",
-      "reason": "55 pre-2021 stocks have data starting after 2021-06-01. These are expanded universe stocks that were added to klines via daily updates but not historically backfilled to 2021."
+      "reason": "55 pre-2021 stocks still have data starting after 2021-06-01. These expanded universe stocks only have ~148-152 rows from 2025-07/08 daily updates, never fully backfilled to 2021. No improvement from round 2."
     },
     {
       "id": "VAL-BACKFILL-002",
-      "reason": "54 pre-2021 stocks have fewer than 1000 daily kline rows (most have only 147-152 rows from Aug 2025 daily updates). These are expanded universe stocks without historical backfill."
+      "reason": "54 pre-2021 stocks have fewer than 1000 daily kline rows (most have 147-152 rows). Same root cause as VAL-BACKFILL-001 — expanded universe stocks not historically backfilled."
     },
     {
       "id": "VAL-BACKFILL-021",
-      "reason": "34 of 201 post-2021 IPO stocks have data starting from 2025 instead of their list_date. 167 stocks are correctly backfilled. The 34 failures are expanded universe stocks not covered by backfill."
+      "reason": "34 of 201 post-2021 IPO stocks have data starting from 2025-07/08 instead of near their list_date. Day differences range 721-1595 days. 167 stocks are correctly backfilled."
     },
     {
       "id": "VAL-CROSS-002",
-      "reason": "214 of 1614 pre-2021 watchlist stocks (13.3%) missing early data (threshold: >10 = fail). These are expanded universe stocks added but not historically backfilled."
+      "reason": "214 of 1614 pre-2021 watchlist stocks missing early data (13.3%). 162 have no kline data at all, 52 have only recent data (~148 rows). Threshold: >10 = fail. fix-backfill-incomplete-stocks did not resolve these stocks."
     }
   ],
   "blockedAssertions": [],
-  "appliedUpdates": [],
-  "previousRound": ".factory/validation/historical-backfill/user-testing/synthesis-round1.json"
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Documented that stock_basic.symbol (not ts_code) must be used for JOIN with klines.symbol_code since klines uses plain codes (000001) while stock_basic.ts_code uses exchange-suffixed codes (000001.SZ)",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": ".factory/validation/historical-backfill/user-testing/synthesis-round2.json"
 }

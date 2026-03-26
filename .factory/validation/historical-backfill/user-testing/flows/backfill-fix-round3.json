@@ -1,0 +1,110 @@
+{
+  "groupId": "backfill-fix-round3",
+  "testedAt": "2026-03-26T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/ashare",
+    "database": "data/market.db",
+    "accessMode": "read-only SELECT queries"
+  },
+  "toolsUsed": ["sqlite3"],
+  "assertions": [
+    {
+      "id": "VAL-BACKFILL-001",
+      "title": "Stock Daily Data Covers 5-Year Date Range",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Run query: SELECT symbol_code, MIN(trade_time) FROM klines WHERE symbol_type='STOCK' AND timeframe='DAY' GROUP BY symbol_code HAVING MIN(trade_time) > '2021-06-01'",
+          "expected": "Only post-2021 IPO stocks returned",
+          "observed": "Query returned stocks including pre-2021 listed ones"
+        },
+        {
+          "action": "Cross-reference results with stock_basic.list_date (joined on symbol_code = stock_basic.symbol) to find pre-2021 stocks",
+          "expected": "0 pre-2021 stocks in result",
+          "observed": "55 pre-2021 stocks have min_date after 2021-06-01. Many have start dates like 2025-08-06 or 2025-08-12, indicating only very recent data (~148-152 rows). Examples: 000792 (盐湖股份, listed 19970904, min_date 2021-08-10), 603986 (兆易创新, listed 20160818, min_date 2025-08-06), 688019 (安集科技, listed 20190722, min_date 2025-08-06)"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/backfill-fix-round3/VAL-BACKFILL-001-pre2021-late-start.txt",
+        "summary": "55 pre-2021 stocks have data starting after 2021-06-01. Most of these (54) have only 147-152 rows starting from 2025-07-23 to 2025-08-13, indicating they were never fully backfilled to 2021."
+      },
+      "issues": "55 pre-2021 listed stocks still lack 5-year backfill. Their data starts from 2025-07/08, not from 2021. The fix-backfill-incomplete-stocks feature did not resolve these stocks. These stocks appear to be from the expanded universe (CSI 300/500/1000 constituents) that were added to the watchlist but never had historical backfill executed."
+    },
+    {
+      "id": "VAL-BACKFILL-002",
+      "title": "Sufficient Row Count Per Stock",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Run query: SELECT symbol_code, COUNT(*) AS cnt FROM klines WHERE symbol_type='STOCK' AND timeframe='DAY' GROUP BY symbol_code HAVING cnt < 1000",
+          "expected": "Only post-2021 IPO stocks returned",
+          "observed": "Query returned stocks including pre-2021 listed ones"
+        },
+        {
+          "action": "Cross-reference with stock_basic.list_date to find pre-2021 stocks with < 1000 rows",
+          "expected": "0 pre-2021 stocks with < 1000 rows",
+          "observed": "54 pre-2021 stocks have < 1000 rows. Most have only 147-152 rows. Examples: 002296 (辉煌科技, listed 20090929, 147 rows), 603259 (药明康德, listed 20180508, 152 rows), 688111 (金山办公, listed 20191118, 152 rows)"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/backfill-fix-round3/VAL-BACKFILL-002-pre2021-low-rows.txt",
+        "summary": "54 pre-2021 stocks have fewer than 1000 daily kline rows. Most have only 147-152 rows, far below the expected >=1100 for a 5-year backfill."
+      },
+      "issues": "54 pre-2021 stocks still have insufficient row counts (mostly 147-152 rows instead of >=1100). Same root cause as VAL-BACKFILL-001 — these stocks were not fully backfilled."
+    },
+    {
+      "id": "VAL-BACKFILL-021",
+      "title": "Post-2021 IPO Stocks Backfilled from List Date",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Query all post-2021 IPO stocks and compute day_diff = MIN(trade_time) - list_date",
+          "expected": "All post-2021 stocks have day_diff <= 7 (within 5 trading days of list_date)",
+          "observed": "201 total post-2021 stocks: 167 have day_diff <= 7 (pass), but 34 have day_diff > 7 (fail)"
+        },
+        {
+          "action": "Examine failing stocks — check if they start from 2021-01-01 instead of their list_date",
+          "expected": "Data starts near list_date",
+          "observed": "34 post-2021 stocks have data starting from 2025-07/08, NOT from their list_date. Examples: 688626 (翔宇医疗, listed 20210331, min_date 2025-08-12, day_diff=1595), 605117 (德业股份, listed 20210420, min_date 2025-08-06, day_diff=1569), 300988 (津荣天宇, listed 20210512, min_date 2025-08-13, day_diff=1554)"
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/backfill-fix-round3/VAL-BACKFILL-021-post2021-wrong-start.txt",
+        "summary": "34 post-2021 IPO stocks have data starting from 2025-07/08 instead of near their list_date. Day differences range from 721 to 1595 calendar days."
+      },
+      "issues": "34 post-2021 IPO stocks were not backfilled from their list_date. Their data starts from 2025-07/08 (only ~148-152 rows of recent data), indicating the backfill was never run for these stocks. The issue is NOT that data starts from 2021-01-01 instead of list_date — data simply doesn't exist for the historical period."
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Expanded Stock Universe Fully Backfilled",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Run query: count pre-2021 watchlist stocks missing kline data before 2021-06-01",
+          "expected": "0 pre-2021 watchlist stocks missing early data (or very close to 0)",
+          "observed": "214 pre-2021 watchlist stocks missing data before 2021-06-01"
+        },
+        {
+          "action": "Break down the 214 missing stocks: how many have no data at all vs some data",
+          "expected": "All should have full 5-year data",
+          "observed": "162 have NO kline data at all, 52 have only recent data (~148-152 rows from 2025-07/08). Total pre-2021 watchlist stocks: 1614, of which 1400 have early data and 214 don't."
+        }
+      ],
+      "evidence": {
+        "queryOutput": "historical-backfill/backfill-fix-round3/VAL-CROSS-002-pre2021-missing-early.txt",
+        "summary": "214 out of 1614 pre-2021 watchlist stocks are missing data before 2021-06-01. 162 have no kline data at all, 52 have only very recent data (~148 rows). Fail threshold is >10 missing stocks."
+      },
+      "issues": "214 pre-2021 watchlist stocks are missing 5-year backfill data, far exceeding the >10 threshold for failure. This includes 162 stocks with no kline data at all and 52 with only recent data. The fix-backfill-incomplete-stocks feature improved coverage for some stocks but left 214 pre-2021 stocks unresolved."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "stock_basic.ts_code format (e.g., 000001.SZ) differs from klines.symbol_code format (e.g., 000001). Had to join on stock_basic.symbol instead of stock_basic.ts_code for cross-referencing.",
+      "resolved": true,
+      "resolution": "Used JOIN stock_basic sb ON k.symbol_code = sb.symbol instead of sb.ts_code",
+      "affectedAssertions": ["VAL-BACKFILL-001", "VAL-BACKFILL-002", "VAL-BACKFILL-021", "VAL-CROSS-002"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 assertions (round 3 re-test after fix-backfill-incomplete-stocks): all 4 FAILED. VAL-BACKFILL-001: 55 pre-2021 stocks lack 5-year data. VAL-BACKFILL-002: 54 pre-2021 stocks have <1000 rows (most have only ~150). VAL-BACKFILL-021: 34 post-2021 IPO stocks not backfilled from list_date. VAL-CROSS-002: 214 pre-2021 watchlist stocks missing early data. Root cause: many stocks (especially from expanded universe) were never fully backfilled — they only have very recent data (~148-152 rows from 2025-07/08) or no data at all."
+}

@@ -246,6 +246,19 @@ Write a JSON report to `.factory/validation/historical-backfill/user-testing/flo
 
 ---
 
+## Discovered Testing Knowledge (Historical-Backfill Milestone)
+
+### stock_basic JOIN key
+- `klines.symbol_code` uses plain codes (e.g., `000001`)
+- `stock_basic.ts_code` uses exchange-suffixed codes (e.g., `000001.SZ`)
+- **Must JOIN on `stock_basic.symbol`** (which is plain code) when cross-referencing with klines
+- Using `stock_basic.ts_code` for JOIN will silently return 0 matches
+
+### Backfill state (round 3, 2026-03-26)
+- 55 pre-2021 expanded universe stocks still not backfilled (only ~148-152 rows from 2025-07/08)
+- 162 watchlist stocks with no kline data at all
+- Total 214 of 1614 pre-2021 watchlist stocks missing early data
+
 ## Discovered Testing Knowledge (Backend Milestone)
 
 ### Pair format
