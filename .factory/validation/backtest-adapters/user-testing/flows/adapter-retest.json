@@ -1,0 +1,85 @@
+{
+  "groupId": "adapter-retest",
+  "testedAt": "2026-03-28T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/quant-dashboard",
+    "python": ".venv/bin/python",
+    "database": "/Users/wendy/work/trading-co/ashare/data/market.db",
+    "surface": "pytest / direct python execution"
+  },
+  "toolsUsed": ["pytest", "python-script"],
+  "assertions": [
+    {
+      "id": "VAL-ADAPTER-006",
+      "title": "Chan Theory signal translation",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test ashare_commission with 2-arg call (size=100, price=10.0)",
+          "expected": "Returns 5.0 (buy, inferred from positive size)",
+          "observed": "Returned 5.0 — is_buy correctly inferred as True from positive size"
+        },
+        {
+          "action": "Test ashare_commission with 2-arg call (size=-100, price=10.0)",
+          "expected": "Returns 6.0 (sell, inferred from negative size)",
+          "observed": "Returned 6.0 — is_buy correctly inferred as False from negative size"
+        },
+        {
+          "action": "Test backward-compat 3-arg call (size=100, price=10.0, is_buy=True/False)",
+          "expected": "Returns same results as before the fix",
+          "observed": "buy=5.0, sell=6.0 — backward compatible"
+        },
+        {
+          "action": "Run 5-year backtest: run_single_stock_backtest('000001', '2021-01-01', '2025-12-31', 100000.0)",
+          "expected": "Backtest completes without TypeError, produces > 0 trades",
+          "observed": "Backtest completed, 3 trades generated, Return=-21.51%"
+        },
+        {
+          "action": "Run existing test suite: pytest tests/adapters/test_chan_theory_bt.py -v",
+          "expected": "All 16 tests pass",
+          "observed": "16 passed, 1 warning (open trades at end of backtest)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "none",
+        "testOutput": "16 passed in 1.21s; targeted script: 3 trades generated with 2-arg commission callback",
+        "validationOutput": "backtest-adapters/adapter-retest/validation-output.json"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-007",
+      "title": "100-share lot rounding",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run 5-year backtest and access raw stats._trades DataFrame",
+          "expected": "DataFrame with individual trade details accessible",
+          "observed": "DataFrame shape (3, 14) with columns including Size"
+        },
+        {
+          "action": "Check each trade's Size: abs(size) % 100 == 0",
+          "expected": "All trades have sizes that are exact multiples of 100",
+          "observed": "Trade 0: Size=4000 ✓, Trade 1: Size=7200 ✓, Trade 2: Size=7200 ✓"
+        },
+        {
+          "action": "Count lot rounding violations",
+          "expected": "0 violations",
+          "observed": "0 violations out of 3 trades"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "none",
+        "tradeSizes": [4000, 7200, 7200],
+        "testOutput": "All 3 trades verified: sizes are multiples of 100",
+        "validationOutput": "backtest-adapters/adapter-retest/validation-output.json"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions (re-run after fix commit 6fd1664): both passed. VAL-ADAPTER-006: ashare_commission now works with backtesting.py's 2-arg callback by inferring is_buy from size sign; 5-year backtest produced 3 trades without crashing. VAL-ADAPTER-007: All 3 trades (sizes 4000, 7200, 7200) are exact multiples of 100. All 16 existing tests also pass."
+}
