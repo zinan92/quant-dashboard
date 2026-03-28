@@ -1,0 +1,44 @@
+{
+  "milestone": "backtest-adapters",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 14,
+    "passed": 12,
+    "failed": 2,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-ADAPTER-001",
+    "VAL-ADAPTER-002",
+    "VAL-ADAPTER-003",
+    "VAL-ADAPTER-004",
+    "VAL-ADAPTER-005",
+    "VAL-ADAPTER-008",
+    "VAL-ADAPTER-009",
+    "VAL-REPORT-001",
+    "VAL-REPORT-002",
+    "VAL-REPORT-003",
+    "VAL-REPORT-004",
+    "VAL-REPORT-005"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-ADAPTER-006",
+      "reason": "ashare_commission(size, price, is_buy) has 3 required params but backtesting.py calls commission(order_size, price) with only 2 args. Backtest crashes with TypeError when actual trades are attempted. Existing tests mask this by using a 2-month date range that produces 0 signals/trades."
+    },
+    {
+      "id": "VAL-ADAPTER-007",
+      "reason": "Blocked by VAL-ADAPTER-006 commission bug. Lot rounding code logic is correct (int(raw_size/100)*100), verified by code inspection and pure math unit tests, but cannot verify through actual trade execution because backtest crashes on first trade attempt due to commission function signature mismatch."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added 'Flow Validator Guidance: pytest (backtest-adapters)' section with test file mapping, isolation rules, and evidence format",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}

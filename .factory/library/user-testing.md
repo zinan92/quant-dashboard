@@ -246,6 +246,51 @@ Write a JSON report to `.factory/validation/historical-backfill/user-testing/flo
 
 ---
 
+## Flow Validator Guidance: pytest (backtest-adapters)
+
+**Testing surface:** Python unit tests via pytest
+**Tool:** No special skill needed — use Execute tool with `.venv/bin/python -m pytest`
+**Project root:** `/Users/wendy/work/trading-co/quant-dashboard`
+**Python venv:** `.venv/bin/python` from project root
+**Database:** `/Users/wendy/work/trading-co/ashare/data/market.db` (read-only SQLite, symlinked to `data/market.db`)
+**Mission dir:** `/Users/wendy/.factory/missions/5ccfbb11-945c-4b92-969a-cfbdf3f9d668`
+
+### What to test:
+- Run specific existing tests that validate each assertion in the validation contract
+- Verify test output confirms the assertion's expected behavior
+- For assertions not covered by existing tests, write and run targeted test scripts
+
+### Key test files:
+- `tests/adapters/test_backtesting_adapter.py` — VAL-ADAPTER-001 through VAL-ADAPTER-005, VAL-ADAPTER-009
+- `tests/adapters/test_chan_theory_bt.py` — VAL-ADAPTER-006, VAL-ADAPTER-007, VAL-ADAPTER-008
+- `tests/reporting/test_tearsheet.py` — VAL-REPORT-001 through VAL-REPORT-005
+
+### Isolation rules:
+- All assertions are read-only (unit tests + database SELECT queries)
+- No shared mutable state between assertions — subagents can run in parallel
+- backtesting.py tests use class variables on ChanTheoryBTStrategy — must be serialized within a subagent
+
+### Evidence format:
+Write a JSON report to `.factory/validation/backtest-adapters/user-testing/flows/<group-id>.json` with:
+```json
+{
+  "groupId": "<group-id>",
+  "assertions": [
+    {
+      "id": "VAL-XXX-NNN",
+      "status": "pass" | "fail" | "blocked",
+      "reason": "description of what was observed",
+      "evidence": "test output or command result"
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["pytest"]
+}
+```
+
+---
+
 ## Discovered Testing Knowledge (Historical-Backfill Milestone)
 
 ### stock_basic JOIN key

@@ -1,0 +1,167 @@
+{
+  "groupId": "adapter-tests",
+  "testedAt": "2026-03-28T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/quant-dashboard",
+    "pythonVenv": ".venv/bin/python",
+    "database": "/Users/wendy/work/trading-co/ashare/data/market.db (read-only SQLite)"
+  },
+  "toolsUsed": ["pytest", "python"],
+  "assertions": [
+    {
+      "id": "VAL-ADAPTER-001",
+      "title": "Data column title-casing",
+      "status": "pass",
+      "steps": [
+        { "action": "Call prepare_backtesting_data(symbol='000001', start_date='2026-01-01', end_date='2026-03-01')", "expected": "DataFrame with title-case OHLCV columns", "observed": "Columns: ['Open', 'High', 'Low', 'Close', 'Volume', 'Dif', 'Dea', 'Macd']" },
+        { "action": "Check title-case columns present", "expected": "Open, High, Low, Close, Volume all present", "observed": "All 5 required title-case columns present" },
+        { "action": "Check no lowercase variants", "expected": "No open, high, low, close, volume columns", "observed": "No lowercase variants found" },
+        { "action": "Run pytest test_column_renaming", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_column_renaming PASSED",
+        "verificationOutput": "detailed-verification.json: columns=['Open','High','Low','Close','Volume','Dif','Dea','Macd'], required_present=true, no_lowercase=true"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-002",
+      "title": "DatetimeIndex conversion",
+      "status": "pass",
+      "steps": [
+        { "action": "Call prepare_backtesting_data(symbol='000001', start_date='2026-01-01', end_date='2026-03-01')", "expected": "DataFrame with DatetimeIndex", "observed": "Index type: DatetimeIndex, dtype: datetime64[ns]" },
+        { "action": "Check monotonically increasing", "expected": "True", "observed": "is_monotonic_increasing=True" },
+        { "action": "Check no NaT values", "expected": "No NaT", "observed": "No NaT values found" },
+        { "action": "Run pytest test_datetimeindex_conversion", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_datetimeindex_conversion PASSED",
+        "verificationOutput": "detailed-verification.json: index_type=DatetimeIndex, index_dtype=datetime64[ns], is_monotonic_increasing=true, no_nat=true"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-003",
+      "title": "Buy commission calculation",
+      "status": "pass",
+      "steps": [
+        { "action": "Call ashare_commission(size=100, price=10.0, is_buy=True)", "expected": "5.0 (minimum fee applies: max(5, 100*10*0.0003)=max(5,0.30)=5.0)", "observed": "5.0" },
+        { "action": "Run pytest test_buy_commission_minimum", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_buy_commission_minimum PASSED",
+        "verificationOutput": "detailed-verification.json: expected=5.0, actual=5.0"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-004",
+      "title": "Sell commission with stamp tax",
+      "status": "pass",
+      "steps": [
+        { "action": "Call ashare_commission(size=100, price=10.0, is_buy=False)", "expected": "6.0 (max(5,0.30) + 100*10*0.001 = 5.0+1.0)", "observed": "6.0" },
+        { "action": "Run pytest test_sell_commission_with_stamp_tax", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_sell_commission_with_stamp_tax PASSED",
+        "verificationOutput": "detailed-verification.json: expected=6.0, actual=6.0"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-005",
+      "title": "Sell commission above minimum",
+      "status": "pass",
+      "steps": [
+        { "action": "Call ashare_commission(size=10000, price=50.0, is_buy=False)", "expected": "650.0 (max(5,150)+500=650)", "observed": "650.0" },
+        { "action": "Run pytest test_large_sell_commission", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_large_sell_commission PASSED",
+        "verificationOutput": "detailed-verification.json: expected=650.0, actual=650.0"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ADAPTER-006",
+      "title": "Chan Theory signal translation",
+      "status": "fail",
+      "steps": [
+        { "action": "Run run_single_stock_backtest with short range (2026-01 to 2026-03)", "expected": "Trades executed from signals", "observed": "0 trades — no signals generated in 2-month window" },
+        { "action": "Run backtest with full range (2021-01 to 2026-03) where signals exist (7 buys, 7 sells)", "expected": "Trades executed, # Trades > 0", "observed": "TypeError: ashare_commission() missing 1 required positional argument: 'is_buy'" },
+        { "action": "Root cause analysis", "expected": "N/A", "observed": "ashare_commission(size, price, is_buy) has 3 required params, but backtesting.py calls commission(order_size, price) with only 2 args. The existing tests pass only because the 2-month date range produces 0 signals/trades, so the commission function is never invoked." }
+      ],
+      "evidence": {
+        "crashLog": "VAL-ADAPTER-006-crash.txt: TypeError at backtesting.py:956 — ashare_commission() missing 1 required positional argument: 'is_buy'",
+        "signalAnalysis": "Stock 000001 full range: 7 BUY_3 + 7 SELL_3 signals; 2-month range: 0 signals"
+      },
+      "issues": "BUG: ashare_commission() signature is incompatible with backtesting.py's commission callback contract. backtesting.py calls commission(order_size, price) with 2 args, but ashare_commission requires 3 (size, price, is_buy). The function should either: (a) make is_buy optional and infer from sign of size (negative=sell), or (b) wrap in a lambda/closure that maps 2-arg calls to 3-arg calls. With date ranges that produce actual signals/trades, the backtest crashes with TypeError."
+    },
+    {
+      "id": "VAL-ADAPTER-007",
+      "title": "100-share lot rounding",
+      "status": "fail",
+      "steps": [
+        { "action": "Run backtest with short range (0 trades)", "expected": "All trade sizes % 100 == 0", "observed": "Trivially passes — 0 trades to check" },
+        { "action": "Run backtest with full range to get actual trades", "expected": "All trade sizes % 100 == 0", "observed": "Backtest crashes before trades complete (same commission bug as VAL-ADAPTER-006)" },
+        { "action": "Verify lot rounding logic in source code", "expected": "int(raw_size / 100) * 100", "observed": "Code at chan_theory_bt.py:77-78 correctly computes lot_rounded_size = int(raw_size / 100) * 100, and only buys if >= 100. Logic is correct but cannot be verified through actual trade execution due to commission bug." }
+      ],
+      "evidence": {
+        "codeInspection": "chan_theory_bt.py lines 77-78: lot_rounded_size = int(raw_size / 100) * 100; if lot_rounded_size >= 100: self.buy(size=lot_rounded_size)",
+        "unitTestLogic": "pytest-chan-theory.txt: test_lot_rounding_logic PASSED (pure math verification, not actual trade verification)",
+        "crashBlock": "Cannot verify actual trade sizes because backtest crashes when trades are attempted (commission function signature mismatch)"
+      },
+      "issues": "BLOCKED by VAL-ADAPTER-006 bug: Cannot verify actual trade sizes through bt.run() because the backtest crashes on first trade due to commission function signature mismatch. The lot rounding code logic is correct (verified by code inspection and pure math unit tests), but actual execution-level verification is impossible until the commission bug is fixed."
+    },
+    {
+      "id": "VAL-ADAPTER-008",
+      "title": "Single-stock backtest produces valid HTML",
+      "status": "pass",
+      "steps": [
+        { "action": "Call run_single_stock_backtest(symbol='000001', start_date='2026-01-01', end_date='2026-03-01')", "expected": "HTML string > 1000 chars containing 'bokeh'", "observed": "HTML length: 25613, contains 'bokeh': True" },
+        { "action": "Run pytest test_html_output_contains_bokeh", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-chan-theory.txt: test_html_output_contains_bokeh PASSED",
+        "verificationOutput": "HTML length=25613, contains 'bokeh'=True"
+      },
+      "issues": "Note: This test passes with the short date range (0 trades) where the commission function is never called. The HTML output is a valid Bokeh chart with 0 trades plotted."
+    },
+    {
+      "id": "VAL-ADAPTER-009",
+      "title": "Indicator columns preserved",
+      "status": "pass",
+      "steps": [
+        { "action": "Call prepare_backtesting_data(symbol='000001', start_date='2026-01-01', end_date='2026-03-01')", "expected": "Dif, Dea, Macd columns present alongside OHLCV", "observed": "Columns: ['Open', 'High', 'Low', 'Close', 'Volume', 'Dif', 'Dea', 'Macd']" },
+        { "action": "Run pytest test_indicator_columns_preserved", "expected": "Test passes", "observed": "PASSED" }
+      ],
+      "evidence": {
+        "testOutput": "pytest-adapter-basic.txt: test_indicator_columns_preserved PASSED",
+        "verificationOutput": "detailed-verification.json: indicators_present=true, ohlcv_present=true"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The existing test suite uses a 2-month date range (2026-01 to 2026-03) for all Chan Theory backtest tests. This range produces 0 signals from the Chan Theory strategy, resulting in 0 trades. This means the commission function is never called during tests, masking the commission function signature incompatibility bug.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-ADAPTER-006", "VAL-ADAPTER-007"]
+    },
+    {
+      "description": "The existing test_all_trades_are_lot_rounded test does not actually inspect individual trade sizes. It only checks that # Trades >= 0, which trivially passes with 0 trades.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-ADAPTER-007"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "ashare_commission() function signature (size, price, is_buy) is incompatible with backtesting.py's commission callback contract (order_size, price). When actual trades are attempted, the backtest crashes with TypeError. This blocks verification of signal translation (VAL-ADAPTER-006) and lot rounding in real trades (VAL-ADAPTER-007).",
+      "affectedAssertions": ["VAL-ADAPTER-006", "VAL-ADAPTER-007"],
+      "quickFixAttempted": "Identified root cause: backtesting.py calls self._commission(order.size, price) with 2 args at lines 956, 1075, 1078, 1088 of backtesting.py. Fix: make is_buy parameter optional with default derived from sign of size, or wrap in lambda. Did not apply fix per subagent scope rules."
+    }
+  ],
+  "summary": "Tested 9 assertions: 6 passed (VAL-ADAPTER-001, 002, 003, 004, 005, 008, 009), 2 failed (VAL-ADAPTER-006, 007). VAL-ADAPTER-006 fails because the backtest crashes on trade execution due to ashare_commission() signature mismatch with backtesting.py's 2-arg commission callback. VAL-ADAPTER-007 cannot be verified through actual trades for the same reason. VAL-ADAPTER-008 passes but only because the test uses a date range that produces 0 trades."
+}

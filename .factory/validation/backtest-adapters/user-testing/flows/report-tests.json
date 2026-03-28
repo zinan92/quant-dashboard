@@ -1,0 +1,83 @@
+{
+  "groupId": "report-tests",
+  "testedAt": "2026-03-28T13:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/quant-dashboard",
+    "pythonVenv": ".venv/bin/python",
+    "database": "/Users/wendy/work/trading-co/ashare/data/market.db (read-only SQLite)",
+    "services": "none — pure Python unit tests"
+  },
+  "toolsUsed": ["pytest", "python"],
+  "assertions": [
+    {
+      "id": "VAL-REPORT-001",
+      "title": "Portfolio returns extraction",
+      "status": "pass",
+      "steps": [
+        { "action": "Run pytest TestExtractDailyReturns::test_extract_returns_from_nav_history", "expected": "Test passes — pd.Series with DatetimeIndex, dtype float64, length matching nav_history", "observed": "Test PASSED: returns is pd.Series, index is DatetimeIndex, dtype=float64, len=3 matching 3-entry nav_history" }
+      ],
+      "evidence": {
+        "testOutput": "backtest-adapters/report-tests/VAL-REPORT-001-test-output.txt",
+        "assertions": "isinstance(returns, pd.Series) ✓, isinstance(returns.index, pd.DatetimeIndex) ✓, returns.dtype == 'float64' ✓, len(returns) == 3 ✓"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-REPORT-002",
+      "title": "CSI 300 benchmark alignment",
+      "status": "pass",
+      "steps": [
+        { "action": "Run pytest test_tearsheet_benchmark_alignment_no_nan", "expected": "Benchmark aligned with portfolio dates, no NaN after alignment", "observed": "Test PASSED: aligned_benchmark has no NaN, length matches portfolio_returns" },
+        { "action": "Run pytest test_benchmark_returns_alignment", "expected": "Benchmark reindexed to portfolio dates, no NaN after fillna", "observed": "Test PASSED: aligned_benchmark.index.equals(portfolio_returns.index) and no NaN" }
+      ],
+      "evidence": {
+        "testOutput": "backtest-adapters/report-tests/VAL-REPORT-002-test-output.txt",
+        "assertions": "aligned_benchmark.isna().any() == False ✓, len(aligned_benchmark) == len(portfolio_returns) ✓, aligned_benchmark.index.equals(portfolio_returns.index) ✓"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-REPORT-003",
+      "title": "Tearsheet HTML generation",
+      "status": "pass",
+      "steps": [
+        { "action": "Run pytest test_tearsheet_generation_with_real_backtest", "expected": "HTML output > 5000 chars, contains <html> tags", "observed": "Test PASSED: HTML is substantial string, contains <html and </html> tags, len > 5000" }
+      ],
+      "evidence": {
+        "testOutput": "backtest-adapters/report-tests/VAL-REPORT-003-test-output.txt",
+        "assertions": "isinstance(html, str) ✓, len(html) > 5000 ✓, '<html' in html.lower() ✓, '</html>' in html.lower() ✓"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-REPORT-004",
+      "title": "Tearsheet key sections present",
+      "status": "pass",
+      "steps": [
+        { "action": "Run pytest test_tearsheet_contains_key_sections (existing test)", "expected": "Test passes", "observed": "Test PASSED" },
+        { "action": "Run supplementary Python script checking for 'monthly', 'drawdown', 'benchmark' keywords in generated HTML", "expected": "All three keywords found in tearsheet HTML", "observed": "HTML length: 488518. 'monthly': True, 'drawdown': True, 'benchmark': True — all three key sections confirmed" }
+      ],
+      "evidence": {
+        "testOutput": "backtest-adapters/report-tests/VAL-REPORT-004-test-output.txt",
+        "assertions": "'monthly' in html_lower ✓, 'drawdown' in html_lower ✓, 'benchmark' in html_lower ✓"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-REPORT-005",
+      "title": "Returns series correctness",
+      "status": "pass",
+      "steps": [
+        { "action": "Run pytest TestExtractDailyReturns::test_returns_correctness", "expected": "Daily returns match formula returns[i] = (nav[i]-nav[i-1])/nav[i-1] within 1e-6 tolerance", "observed": "Test PASSED: expected_return_1 = (105000-100000)/100000 = 0.05, expected_return_2 = (102900-105000)/105000 = -0.02, both match nav_history daily_return values within 1e-6, and extracted series values match" }
+      ],
+      "evidence": {
+        "testOutput": "backtest-adapters/report-tests/VAL-REPORT-005-test-output.txt",
+        "assertions": "abs(nav_history[1]['daily_return'] - expected_return_1) < 1e-6 ✓, abs(nav_history[2]['daily_return'] - expected_return_2) < 1e-6 ✓, abs(returns.iloc[1] - expected_return_1) < 1e-6 ✓, abs(returns.iloc[2] - expected_return_2) < 1e-6 ✓"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed, 0 failed. All reporting module assertions (VAL-REPORT-001 through VAL-REPORT-005) confirmed working correctly via existing pytest tests and supplementary validation scripts."
+}
