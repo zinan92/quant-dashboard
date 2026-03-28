@@ -1,37 +1,25 @@
 {
   "milestone": "ux-enhancements",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "validatorsRun": {
     "test": { "passed": true, "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x", "exitCode": 0, "details": "201 passed, 54 warnings" },
     "typecheck": { "passed": true, "command": "cd quant-dashboard && python3 -m mypy src/ --ignore-missing-imports", "exitCode": 0, "details": "no issues found in 18 source files" },
-    "lint": { "passed": true, "command": "cd quant-dashboard && python3 -m ruff check src/", "exitCode": 0, "details": "All checks passed (after auto-fixing 9 W293 whitespace-in-blank-line errors and manually fixing 3 more in src/i18n.py docstring)" }
+    "lint": { "passed": true, "command": "cd quant-dashboard && python3 -m ruff check src/", "exitCode": 0, "details": "All checks passed after fixing 3 issues: 2 E501 line-too-long in src/i18n.py (wrapped with parentheses) and 1 F601 duplicate dict key (removed duplicate '📈 Stock Analysis' entry)" }
   },
   "reviewsSummary": {
-    "total": 3,
-    "passed": 2,
-    "failed": 1,
-    "failedFeatures": ["i18n-streamlit-ui"]
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "i18n-streamlit-ui",
-      "severity": "blocking",
-      "description": "English UI is completely broken. The t() function in src/i18n.py returns raw machine-readable keys (e.g., 'sidebar_title', 'total_return', 'run_backtest') instead of human-readable English text when lang='en'. All ~40 t() calls in streamlit_app.py display ugly identifier strings in English mode. Fix: either (a) restructure TRANSLATIONS to use English text as keys (e.g., TRANSLATIONS['Total Return'] = '总收益率') so t('Total Return', 'en') naturally returns 'Total Return', or (b) add an ENGLISH dict mapping keys to English display text and look up both languages. The existing test test_english_returns_key validates the broken behavior by asserting t('total_return', 'en') == 'total_return'."
-    }
-  ],
-  "appliedUpdates": [
-    {
-      "target": "library",
-      "description": "Added quantstats-i18n.md documenting that QuantStats generates most metric labels dynamically in Python (reports.py), not from the HTML template, requiring a two-pronged i18n approach: custom template for static HTML strings + post-processing function for dynamic labels.",
-      "sourceFeature": "i18n-quantstats-chinese-template"
-    }
-  ],
+  "blockingIssues": [],
+  "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": "AGENTS.md",
       "suggestion": "Update port reference from 8501 to 8020 to match services.yaml. Change 'Port Range: 8501 (Streamlit default)' to 'Port Range: 8020 (Streamlit, see services.yaml)'.",
-      "evidence": "Two independent reviewers (fix-date-range-and-stock-names, i18n-streamlit-ui) flagged the mismatch. AGENTS.md says port 8501, services.yaml declares port 8020. Workers correctly used 8020 from services.yaml.",
+      "evidence": "Multiple reviewers across rounds flagged the mismatch. AGENTS.md says port 8501, services.yaml declares port 8020. Workers correctly used 8020 from services.yaml.",
       "isSystemic": true
     },
     {
@@ -42,22 +30,26 @@
     },
     {
       "target": "AGENTS.md",
-      "suggestion": "Add i18n key naming convention to the i18n section: 'Translation keys should be human-readable English text (e.g., \"Total Return\", not \"total_return\") so the t() function can return the key itself for English mode.'",
-      "evidence": "The i18n-streamlit-ui feature used machine-readable identifiers as keys, causing the English UI to display raw keys instead of readable labels. This was the root cause of the blocking issue.",
+      "suggestion": "Add i18n key naming convention to the i18n section: 'Translation keys must be human-readable English text (e.g., \"Total Return\", not \"total_return\") so the t() function returns the key itself for English mode.'",
+      "evidence": "The i18n-streamlit-ui feature used machine-readable identifiers as keys, causing the English UI to display raw keys instead of readable labels. This was the root cause of the blocking issue in round 1, fixed in fix-i18n-english-keys.",
       "isSystemic": true
     },
     {
       "target": "skills",
       "suggestion": "Backend-worker skill should include a visual UI verification step for Streamlit features: 'For Streamlit UI features, verify the visual output using agent-browser or manual inspection, not just health-check and tests.'",
-      "evidence": "The i18n-streamlit-ui worker passed all tests and health checks but didn't visually verify the English UI, missing the broken English labels. A browser-based check would have caught this.",
+      "evidence": "The i18n-streamlit-ui worker passed all tests and health checks but didn't visually verify the English UI, missing the broken English labels. A browser-based check would have caught this. Same finding in round 2 review.",
       "isSystemic": true
     }
   ],
   "rejectedObservations": [
     {
-      "observation": "AGENTS.md i18n section already documents the pattern correctly, no new conventions introduced (from i18n-quantstats-chinese-template review).",
-      "reason": "already-documented"
+      "observation": "AGENTS.md i18n key convention gap (from fix-i18n-english-keys review)",
+      "reason": "duplicate — already captured in suggestedGuidanceUpdates from round 1, carried forward"
+    },
+    {
+      "observation": "Port mismatch (from fix-i18n-english-keys review)",
+      "reason": "duplicate — already captured in suggestedGuidanceUpdates from round 1, carried forward"
     }
   ],
-  "previousRound": null
+  "previousRound": ".factory/validation/ux-enhancements/scrutiny/synthesis-round1.json"
 }

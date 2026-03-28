@@ -10,7 +10,9 @@ TRANSLATIONS = {
     # Page title and headers
     "A-Share Quant Dashboard — Chan Theory": "A股量化交易仪表盘 — 缠论",
     "📈 A-Share Quant Dashboard": "📈 A股量化交易仪表盘",
-    "**Strategy:** Chan Theory — Mechanical fractal detection based on MACD divergence": "**策略:** 缠论 (Chan Theory) — 基于MACD背驰的机械化分形检测",
+    "**Strategy:** Chan Theory — Mechanical fractal detection based on MACD divergence": (
+        "**策略:** 缠论 (Chan Theory) — 基于MACD背驰的机械化分形检测"
+    ),
 
     # Sidebar configuration section
     "⚙️ Backtest Configuration": "⚙️ 回测配置",
@@ -55,7 +57,6 @@ TRANSLATIONS = {
     "Hold Days": "持有天数",
 
     # Stock Analysis tab
-    "📈 Stock Analysis": "📈 个股分析",
     "Select a stock to analyze:": "选择要分析的股票:",
     "Select a stock that was traded during the backtest": "选择回测期间交易过的股票",
     "**Analyzing:** ": "**分析中:** ",
@@ -80,7 +81,9 @@ TRANSLATIONS = {
     "No trades found for {stock}": "未找到 {stock} 的交易记录",
 
     # Welcome message
-    "👈 Configure backtest parameters in the sidebar, then click **Run Backtest** to begin.": "👈 在侧边栏配置回测参数，然后点击 **运行回测** 开始。",
+    "👈 Configure backtest parameters in the sidebar, then click **Run Backtest** to begin.": (
+        "👈 在侧边栏配置回测参数，然后点击 **运行回测** 开始。"
+    ),
     "## Welcome to A-Share Quant Dashboard!": "## 欢迎使用A股量化交易仪表盘!",
     """
 This dashboard showcases the **Chan Theory** quantitative trading strategy applied to A-Share markets.

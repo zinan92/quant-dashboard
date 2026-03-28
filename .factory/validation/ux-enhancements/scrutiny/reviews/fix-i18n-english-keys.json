@@ -1,0 +1,44 @@
+{
+  "featureId": "fix-i18n-english-keys",
+  "reviewedAt": "2026-03-28T06:45:00.000Z",
+  "commitId": "d91460f",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix correctly addresses the original blocking bug where English mode displayed raw machine-readable keys (e.g., 'sidebar_title') instead of human-readable text. The approach is sound: TRANSLATIONS dict was restructured from {machine_key → Chinese} to {English_text → Chinese_text}, all ~70 t() calls in streamlit_app.py were updated to pass English text as keys, and the t() function logic itself remained unchanged (returns key for 'en', looks up TRANSLATIONS for 'zh'). All 56 translation entries are present, all 201 tests pass, and verification confirms t('Total Return', 'en') returns 'Total Return' and t('Total Return', 'zh') returns '总收益率'. The tests were properly updated to validate the new behavior instead of the broken behavior.",
+    "issues": [
+      {
+        "file": "quant-dashboard/src/i18n.py",
+        "line": 58,
+        "severity": "non_blocking",
+        "description": "Duplicate key '📈 Stock Analysis' exists at both line 32 (Tab names section) and line 58 (Stock Analysis tab section) in the committed version. Python silently overwrites the first with the second. Both map to '📈 个股分析' so behavior is correct, but the duplicate is unnecessary clutter. (Note: this was already cleaned up in an uncommitted post-commit edit.)"
+      },
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 31,
+        "severity": "non_blocking",
+        "description": "st.set_page_config(page_title='A-Share Quant Dashboard — Chan Theory') remains hardcoded in English and is not wrapped with t(). A translation key 'A-Share Quant Dashboard — Chan Theory' exists in TRANSLATIONS but is unused. This is acceptable because set_page_config must be called before session_state is available (Streamlit limitation), so it cannot use the language selector value."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md i18n section now documents the t(key, lang) pattern but still does not specify the key naming convention (that keys must be human-readable English text, not machine-readable identifiers). This was the root cause of the original bug. Adding 'Keys in TRANSLATIONS must be the English display text itself, not machine-readable identifiers' to the i18n section of AGENTS.md would prevent this class of bug from recurring.",
+      "evidence": "AGENTS.md i18n section says 'All UI text goes through src/i18n.py → t(key, lang) function' but does not specify what form keys should take. The original worker used machine_key style, the fix worker had to restructure to English_text style."
+    },
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md states 'Port Range: 8501 (Streamlit default)' but services.yaml configures port 8020. The worker correctly used port 8020 per services.yaml. AGENTS.md is stale on this point (same observation as original review, still not updated).",
+      "evidence": "AGENTS.md line 3: 'Port Range: 8501 (Streamlit default)' vs .factory/services.yaml: 'port: 8020'"
+    },
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill's manual verification step (step 5) only covers API endpoints with curl. For Streamlit UI features like i18n, there is no guidance to visually verify UI output. The original bug could have been caught by a simple visual check of English mode. The fix worker also did not perform visual verification but the fix was straightforward enough that programmatic verification (t() assertions) was sufficient.",
+      "evidence": "SKILL.md step 5: 'For API endpoints: use curl to test against the running server'. No guidance for Streamlit UI verification. Both workers relied solely on pytest and inline Python assertions."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/ux-enhancements/scrutiny/reviews/i18n-streamlit-ui.json",
+  "summary": "PASS — The fix fully addresses the original blocking failure. The TRANSLATIONS dict was restructured from machine-readable keys to English text keys, all ~70 t() calls in streamlit_app.py were updated accordingly, and tests were updated to validate the corrected behavior. English mode now shows human-readable text ('Total Return', '⚙️ Backtest Configuration', etc.) and Chinese mode returns correct translations. All 201 tests pass. The t() function logic was cleverly left unchanged since it already returned the key for English — the fix was purely about making the keys themselves be the English display text. Two minor non-blocking issues noted: a duplicate dict key in i18n.py (already cleaned up post-commit) and the hardcoded page_title (Streamlit limitation)."
+}
