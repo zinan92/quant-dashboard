@@ -1,0 +1,36 @@
+{
+  "milestone": "health-dashboard-upgrade",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 15,
+    "passed": 14,
+    "failed": 1,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-HEALTH-001",
+    "VAL-HEALTH-002",
+    "VAL-HEALTH-003",
+    "VAL-HEALTH-004",
+    "VAL-HEALTH-005",
+    "VAL-HEALTH-006",
+    "VAL-HEALTH-007",
+    "VAL-HEALTH-008",
+    "VAL-HEALTH-009",
+    "VAL-HEALTH-010",
+    "VAL-HEALTH-011",
+    "VAL-HEALTH-014",
+    "VAL-HEALTH-015",
+    "VAL-CROSS-004"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-CROSS-001",
+      "reason": "Live /api/health/gaps returned total_gaps=378063 and the /health page displayed 0 healthy stocks, so the dashboard did not show a zero-gap backfilled period."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null
+}

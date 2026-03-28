@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from src.adapters.backtesting_adapter import get_stock_names
 from src.adapters.chan_theory_bt import run_single_stock_backtest
 from src.backtest.engine import BacktestEngine
 from src.data_layer.market_reader import MarketReader
@@ -57,7 +58,7 @@ default_start = default_end - timedelta(days=90)
 start_date = st.sidebar.date_input(
     "Start Date",
     value=default_start,
-    min_value=datetime(2025, 11, 1).date(),
+    min_value=datetime(2021, 1, 1).date(),
     max_value=default_end,
 )
 
@@ -281,20 +282,37 @@ if "result" in st.session_state and "last_run" in st.session_state:
         if result.trades:
             traded_stocks = sorted(list(set(trade.symbol for trade in result.trades)))
 
+            # Get stock names for dropdown
+            reader = MarketReader()
+            stock_names = get_stock_names(traded_stocks, reader)
+
+            # Create dropdown options with format "TICKER - 股票名称"
+            stock_options = []
+            stock_display_map = {}  # Maps display text to symbol
+            for symbol in traded_stocks:
+                if symbol in stock_names:
+                    display_text = f"{symbol} - {stock_names[symbol]}"
+                else:
+                    display_text = symbol
+                stock_options.append(display_text)
+                stock_display_map[display_text] = symbol
+
             # Stock selector dropdown
-            selected_stock = st.selectbox(
+            selected_display = st.selectbox(
                 "Select a stock to analyze:",
-                options=traded_stocks,
+                options=stock_options,
                 index=0,
                 help="Choose a stock that was traded during the backtest",
             )
 
-            if selected_stock:
-                st.markdown(f"**Analyzing:** {selected_stock}")
+            # Get actual symbol from display text
+            selected_stock = stock_display_map[selected_display]
 
-                with st.spinner(f"Running single-stock backtest for {selected_stock}..."):
+            if selected_stock:
+                st.markdown(f"**Analyzing:** {selected_display}")
+
+                with st.spinner(f"Running single-stock backtest for {selected_display}..."):
                     try:
-                        reader = MarketReader()
                         stats_dict, bokeh_html = run_single_stock_backtest(
                             symbol=selected_stock,
                             start_date=params["start_date"],

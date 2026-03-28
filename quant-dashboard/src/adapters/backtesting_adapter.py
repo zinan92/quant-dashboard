@@ -80,6 +80,39 @@ def prepare_backtesting_data(
     return df
 
 
+def get_stock_names(symbols: list[str], reader: MarketReader) -> dict[str, str]:
+    """Get Chinese stock names for a list of symbols.
+
+    Queries the stock_basic table in market.db to retrieve stock names.
+
+    Parameters
+    ----------
+    symbols : list[str]
+        List of stock symbol codes (e.g., ["000001", "000002"]).
+    reader : MarketReader
+        MarketReader instance to fetch data from.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of symbol to stock name (e.g., {"000001": "平安银行"}).
+        Symbols not found in the database will be omitted from the result.
+    """
+    if not symbols:
+        return {}
+
+    # Fetch stock basic info for all symbols
+    stock_basic_df = reader.get_stock_basic()
+
+    # Filter to requested symbols and create mapping
+    stock_basic_df = stock_basic_df[stock_basic_df["symbol"].isin(symbols)]
+
+    # Create symbol -> name mapping
+    name_mapping = dict(zip(stock_basic_df["symbol"], stock_basic_df["name"]))
+
+    return name_mapping
+
+
 def ashare_commission(size: float, price: float, is_buy: bool | None = None) -> float:
     """Calculate A-share commission for a trade.
 

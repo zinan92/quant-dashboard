@@ -5,7 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.adapters.backtesting_adapter import ashare_commission, prepare_backtesting_data
+from src.adapters.backtesting_adapter import (
+    ashare_commission,
+    get_stock_names,
+    prepare_backtesting_data,
+)
 from src.data_layer.market_reader import MarketReader
 
 
@@ -183,3 +187,65 @@ class TestAshareCommission:
         # Sell trade (negative size)
         sell_commission = ashare_commission(-10000, 50.0)
         assert sell_commission == 650.0, "Large sell should calculate correctly with stamp tax"
+
+
+class TestGetStockNames:
+    """Tests for get_stock_names function."""
+
+    @pytest.fixture
+    def reader(self):
+        """Create MarketReader instance."""
+        return MarketReader()
+
+    def test_get_single_stock_name(self, reader):
+        """Test getting name for a single stock."""
+        names = get_stock_names(["000001"], reader)
+
+        assert "000001" in names, "Result should contain symbol 000001"
+        assert names["000001"] == "平安银行", "Stock name should match database"
+
+    def test_get_multiple_stock_names(self, reader):
+        """Test getting names for multiple stocks."""
+        symbols = ["000001", "000002"]
+        names = get_stock_names(symbols, reader)
+
+        assert len(names) == 2, "Should return names for 2 stocks"
+        assert names["000001"] == "平安银行", "First stock name should match"
+        assert names["000002"] == "万科Ａ", "Second stock name should match"
+
+    def test_get_stock_names_empty_list(self, reader):
+        """Test getting names for empty symbol list."""
+        names = get_stock_names([], reader)
+
+        assert names == {}, "Empty list should return empty dict"
+
+    def test_get_stock_names_nonexistent_symbol(self, reader):
+        """Test getting names when symbol doesn't exist."""
+        names = get_stock_names(["NONEXISTENT"], reader)
+
+        assert names == {}, "Nonexistent symbol should return empty dict"
+
+    def test_get_stock_names_mixed_valid_invalid(self, reader):
+        """Test getting names with mix of valid and invalid symbols."""
+        symbols = ["000001", "NONEXISTENT", "000002"]
+        names = get_stock_names(symbols, reader)
+
+        assert len(names) == 2, "Should only return valid symbols"
+        assert "000001" in names, "Valid symbol should be present"
+        assert "000002" in names, "Valid symbol should be present"
+        assert "NONEXISTENT" not in names, "Invalid symbol should not be present"
+
+    def test_get_stock_names_returns_dict(self, reader):
+        """Test that return type is a dict."""
+        names = get_stock_names(["000001"], reader)
+
+        assert isinstance(names, dict), "Return type should be dict"
+
+    def test_get_stock_names_result_keys_match_input(self, reader):
+        """Test that result dict keys match input symbols."""
+        symbols = ["000001", "000002", "000004"]
+        names = get_stock_names(symbols, reader)
+
+        for symbol in symbols:
+            if symbol in names:
+                assert symbol in symbols, "Result keys should be from input list"
