@@ -1,0 +1,53 @@
+{
+  "milestone": "backtest-adapters",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x", "exitCode": 0, "detail": "174 passed, 26 warnings in 7.63s" },
+    "typecheck": { "passed": true, "command": "cd quant-dashboard && python3 -m mypy src/ --ignore-missing-imports", "exitCode": 0, "detail": "Success: no issues found in 17 source files" },
+    "lint": { "passed": true, "command": "cd quant-dashboard && python3 -m ruff check src/", "exitCode": 0, "detail": "All checks passed!" }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Added .factory/library/index-symbol-naming.md documenting that MarketReader uses exchange-suffixed symbols (000300.SH) while IndexFetcher uses bare codes (000300), and when to use each.",
+      "sourceFeature": "quantstats-tearsheet-reporting"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add coding convention: 'Always quote pip version specifiers in shell commands, e.g., pip install \"backtesting>=0.3.3\"' to prevent shell glob expansion creating stray files.",
+      "evidence": "Feature data-adapter-and-commission worker ran unquoted pip install causing a stray '=0.3.3' file that needed manual cleanup.",
+      "isSystemic": false
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add testing guidance: 'Tests should verify actual behavior, not just assert type membership or trivially-true conditions. For strategy wrappers, test that signals produce expected trade actions by examining backtest results.' Consider adding minimum test quality bar alongside the existing minimum test count requirements.",
+      "evidence": "Feature chan-theory-bt-strategy-wrapper had 16 tests, but 3-4 were tautological (e.g., asserting SignalType.BUY_1 is in a tuple containing SignalType.BUY_1, asserting num_trades >= 0). While not blocking, these tests provide false confidence.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "AGENTS.md should note that adapters may instantiate strategy classes at runtime",
+      "reason": "This is obvious from the architecture (adapters wrap strategies for backtesting.py) and doesn't need explicit documentation. The off-limits rule is about not modifying source in src/strategy/, not about importing from it."
+    },
+    {
+      "observation": "architecture.md project structure doesn't show src/adapters/ or src/reporting/",
+      "reason": "architecture.md in .factory/library/ is a reference doc that will be updated as part of normal documentation maintenance. Not a shared state issue requiring immediate action — the architecture diagram is descriptive, not prescriptive."
+    },
+    {
+      "observation": "Backend-worker skill procedure works well for adapter implementation work",
+      "reason": "Positive observation, no action needed. This confirms the skill is well-suited for its purpose."
+    }
+  ],
+  "previousRound": null
+}

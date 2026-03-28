@@ -1,0 +1,39 @@
+{
+  "featureId": "data-adapter-and-commission",
+  "reviewedAt": "2026-03-28T05:10:00.000Z",
+  "commitId": "af9f13c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Clean, well-structured implementation that fully meets the feature requirements. prepare_backtesting_data() correctly converts MarketReader output to backtesting.py format with title-case columns, DatetimeIndex, and amount column removal. ashare_commission() correctly implements A-share commission model with min ¥5 base + 0.1% stamp tax on sells. Empty DataFrame edge case handled properly with correct schema. 11 comprehensive tests cover all validation criteria (VAL-ADAPTER-001 through 005 and 009). Code follows project conventions (type hints, docstrings, __future__ annotations). The __init__.py properly exports both public functions.",
+    "issues": [
+      {
+        "file": "quant-dashboard/tests/adapters/test_backtesting_adapter.py",
+        "line": 18,
+        "severity": "non_blocking",
+        "description": "Tests use real MarketReader hitting market.db, making them integration tests rather than pure unit tests. If database is unavailable or data range changes, tests could break. Consider adding mock-based unit tests alongside the integration tests for resilience. However, this matches the existing test patterns in the project (e.g., test_data_layer.py)."
+      },
+      {
+        "file": "quant-dashboard/src/adapters/backtesting_adapter.py",
+        "line": 82,
+        "severity": "non_blocking",
+        "description": "The 'date' column is assumed to always exist when the DataFrame is non-empty. If MarketReader's schema were to change (e.g., column renamed), this would raise a KeyError. Given MarketReader is frozen per AGENTS.md, this is acceptable but worth noting."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Worker ran 'pip install backtesting>=0.3.3' without quoting the version spec, causing shell glob expansion to create a stray file '=0.3.3' in the working directory. The worker noticed and cleaned it up, but this is a common pitfall. AGENTS.md or the backend-worker skill could note to always quote pip version specifiers in shell commands.",
+      "evidence": "Transcript shows worker running 'python3 -m pip install backtesting>=0.3.3' (unquoted), then later 'rm -f \"=0.3.3\"' to clean up the stray file."
+    },
+    {
+      "area": "conventions",
+      "observation": "The architecture.md project structure diagram doesn't show src/adapters/ or tests/adapters/ directories, which are now key parts of the codebase. The diagram should be updated to reflect the new adapter layer.",
+      "evidence": "architecture.md shows 'src/' containing only data_layer/, strategy/, and backtest/ — missing the new adapters/ package. AGENTS.md does reference src/adapters/ in coding conventions but architecture.md is stale."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation is clean, correct, and fully satisfies all 6 validation criteria it fulfills (VAL-ADAPTER-001 through 005 and 009). Both functions (prepare_backtesting_data and ashare_commission) are implemented exactly as specified with proper type hints, docstrings, and error handling. 11 tests provide comprehensive coverage including edge cases (empty DataFrame, zero/negative size, minimum commission). Two non-blocking observations: tests are integration-style using real database (consistent with project patterns), and architecture.md is missing the new adapters directory."
+}

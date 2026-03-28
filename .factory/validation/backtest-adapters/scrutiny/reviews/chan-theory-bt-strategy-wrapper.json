@@ -1,0 +1,74 @@
+{
+  "featureId": "chan-theory-bt-strategy-wrapper",
+  "reviewedAt": "2026-03-28T05:10:00.000Z",
+  "commitId": "b130266",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation is solid and meets all core requirements. ChanTheoryBTStrategy correctly wraps Chan Theory signals into backtesting.py's Strategy class. Signal translation (BUY_1/2/3 → buy, SELL_1/2/3 → close) is correct. Lot rounding formula matches spec: int(equity*0.95/price/100)*100 (equivalent to floor() for positive values). run_single_stock_backtest correctly fetches data in both formats, sets class variables, runs backtest with trade_on_close=True and ashare_commission, and extracts HTML via temp file. Temp file cleanup is properly handled with try/finally. The implementation respects AGENTS.md boundaries (only writes to src/adapters/ and tests/adapters/). 16 tests were added, all passing, though several tests are low-quality (tautological assertions). No blocking issues found.",
+    "issues": [
+      {
+        "file": "quant-dashboard/tests/adapters/test_chan_theory_bt.py",
+        "line": 47,
+        "severity": "non_blocking",
+        "description": "test_signal_translation_buy_signals is a tautology — it asserts that SignalType.BUY_1 is in a tuple containing SignalType.BUY_1. It does not actually test that the strategy translates BUY signals into buy() calls. A meaningful test would run a backtest with known signals and verify buy orders were placed."
+      },
+      {
+        "file": "quant-dashboard/tests/adapters/test_chan_theory_bt.py",
+        "line": 54,
+        "severity": "non_blocking",
+        "description": "test_signal_translation_sell_signals has the same tautology issue — asserts SELL_1 is in (SELL_1, SELL_2, SELL_3). Does not test actual signal-to-action translation."
+      },
+      {
+        "file": "quant-dashboard/tests/adapters/test_chan_theory_bt.py",
+        "line": 195,
+        "severity": "non_blocking",
+        "description": "test_all_trades_are_lot_rounded only asserts num_trades >= 0, which is trivially true. The comment admits backtesting.py doesn't expose individual trade sizes in stats. This test does not verify lot rounding at all — it just checks a non-negative integer. Consider accessing bt._trades or stats._trades to verify actual trade sizes are multiples of 100."
+      },
+      {
+        "file": "quant-dashboard/tests/adapters/test_chan_theory_bt.py",
+        "line": 171,
+        "severity": "non_blocking",
+        "description": "test_commission_applied only checks that 'Return [%]' exists in stats. It doesn't verify commission was actually applied (e.g., by comparing returns with and without commission, or checking that the return is less than a zero-commission run)."
+      },
+      {
+        "file": "quant-dashboard/tests/adapters/test_chan_theory_bt.py",
+        "line": 155,
+        "severity": "non_blocking",
+        "description": "test_trade_on_close_parameter only asserts that stats and html are not None. It doesn't verify that trade_on_close=True is actually in effect. This is essentially a duplicate of test_backtest_returns_tuple."
+      },
+      {
+        "file": "quant-dashboard/src/adapters/chan_theory_bt.py",
+        "line": 41,
+        "severity": "non_blocking",
+        "description": "Class-level mutable state (original_df, signal_lookup) is not thread-safe. If two run_single_stock_backtest calls execute concurrently, they would overwrite each other's class variables. This is acceptable for the current single-threaded Streamlit use case but should be documented."
+      },
+      {
+        "file": "quant-dashboard/src/adapters/chan_theory_bt.py",
+        "line": 41,
+        "severity": "non_blocking",
+        "description": "Type annotation for signal_lookup class variable is `dict` but could be more specific: `dict[str, Signal]` to match the docstring and improve type checking."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md states 'src/strategy/ — Chan Theory engine is frozen' as off-limits. The worker correctly imported from but did not modify src/strategy/. However, the new adapter creates a ChanTheoryStrategy() instance in init() which triggers the full signal pipeline on every backtest — this coupling is by design per the feature spec, but AGENTS.md doesn't mention that adapters may instantiate strategy classes at runtime.",
+      "evidence": "src/adapters/chan_theory_bt.py:50 — `chan_strategy = ChanTheoryStrategy()` instantiates the frozen strategy"
+    },
+    {
+      "area": "conventions",
+      "observation": "The feature spec requires ≥5 tests. Worker delivered 16 tests, but at least 3-4 of them are tautological or trivially passing (signal translation tests assert identity, lot rounding test asserts >= 0, commission test only checks key existence). Effectively ~12 meaningful tests. AGENTS.md doesn't define minimum test quality standards beyond 'cover happy path, edge cases, error cases'.",
+      "evidence": "tests/adapters/test_chan_theory_bt.py:47-56 (signal translation tautologies), :195 (trivial lot rounding assertion)"
+    },
+    {
+      "area": "skills",
+      "observation": "Worker followed the backend-worker skill procedure: read context, read existing code, wrote tests, ran full test suite, committed. skillFeedback.followedProcedure is true with no deviations. The skill procedure is well-suited for this type of work.",
+      "evidence": "Transcript shows reading AGENTS.md, architecture.md, existing adapter code, running baseline tests before implementation, then full test suite after."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The Chan Theory backtesting.py strategy wrapper implementation is correct and complete. Core functionality works: ChanTheoryBTStrategy properly translates BUY/SELL signals to backtesting.py actions with correct lot rounding, and run_single_stock_backtest returns (stats_dict, html_string) with Bokeh visualization. All 160 tests pass (144 existing + 16 new). The implementation stays within AGENTS.md boundaries. Non-blocking issues are limited to weak test assertions on a few tests (signal translation tautologies, trivial lot rounding check) and missing type specificity on class variables. No blocking issues found."
+}

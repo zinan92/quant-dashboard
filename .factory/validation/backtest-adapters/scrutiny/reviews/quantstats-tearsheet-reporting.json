@@ -1,0 +1,57 @@
+{
+  "featureId": "quantstats-tearsheet-reporting",
+  "reviewedAt": "2026-03-28T05:15:00.000Z",
+  "commitId": "603b7ac",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation is solid and covers all requirements from the feature description and validation contract (VAL-REPORT-001 through VAL-REPORT-005). The three core functions (extract_daily_returns, get_benchmark_returns, generate_portfolio_tearsheet) are well-documented, have correct type hints, handle empty/edge cases, and properly clean up temporary files. The worker correctly identified and fixed the CSI 300 symbol mismatch (000300 vs 000300.SH in market.db) during development. Test suite has 14 tests covering happy paths, empty data, alignment, arithmetic correctness, and end-to-end workflow. No blocking issues found.",
+    "issues": [
+      {
+        "file": "quant-dashboard/src/reporting/tearsheet.py",
+        "line": 87,
+        "severity": "non_blocking",
+        "description": "Docstring says 'Uses MarketReader.get_index_klines() to fetch CSI 300 data (symbol 000300)' but the actual code uses '000300.SH'. The docstring should be updated to match the implementation to avoid confusion for future developers."
+      },
+      {
+        "file": "quant-dashboard/src/reporting/tearsheet.py",
+        "line": 155,
+        "severity": "non_blocking",
+        "description": "The CSI 300 index symbol '000300.SH' is hardcoded in get_benchmark_returns(). If the project later needs to support different benchmark indices (e.g., ChiNext, SSE 50), a parameter or constant would be cleaner. Not a blocking issue since the feature spec explicitly asks for CSI 300."
+      },
+      {
+        "file": "quant-dashboard/src/reporting/tearsheet.py",
+        "line": 166,
+        "severity": "non_blocking",
+        "description": "The tempfile pattern uses NamedTemporaryFile(delete=False) then manually unlinks. This is correct and the finally block ensures cleanup. However, if qs.reports.html() raises an exception before writing the file, Path(tmp_path).read_text() will never execute, but the unlink in finally will still clean up - so this is safe. Minor: could use a context manager wrapper for clarity."
+      },
+      {
+        "file": "quant-dashboard/tests/reporting/test_tearsheet.py",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "Several tests (test_benchmark_returns_from_real_data, test_tearsheet_generation_with_real_backtest, etc.) depend on the real market.db database file. These are integration tests rather than unit tests. They could fail if market.db is unavailable or lacks data for the tested date ranges. This is acceptable for a project that has the data committed, but the tests are not isolated/mockable."
+      },
+      {
+        "file": "quant-dashboard/tests/reporting/test_tearsheet.py",
+        "line": 109,
+        "severity": "non_blocking",
+        "description": "test_returns_correctness verifies that the daily_return fields in the manually-constructed nav_history are arithmetically correct, then checks that extract_daily_returns extracts those values. However, it doesn't test that the BacktestEngine itself produces correct daily_return values - it only tests that extract_daily_returns faithfully reads what's in nav_history. This is the correct scope per VAL-REPORT-005 (which says 'matching daily_return field within 1e-6'), but worth noting the test trusts the input data."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The feature description says to use reader.get_index_klines('000300', ...) but the actual symbol in market.db is '000300.SH'. The worker correctly discovered this mismatch during development (transcript shows DB queries to check the symbol). AGENTS.md and architecture.md don't document that index symbols in market.db use the exchange suffix (.SH / .SZ), while the IndexFetcher uses bare codes (e.g., '000300'). This inconsistency between data sources should be documented.",
+      "evidence": "market_reader.py:106 docstring shows '399006.SZ' example; IndexFetcher uses bare '000300'; tearsheet.py uses '000300.SH'. Worker transcript shows 4+ tool calls exploring the DB to find the correct symbol."
+    },
+    {
+      "area": "conventions",
+      "observation": "The feature description mentions 'Use reader.get_index_klines or IndexFetcher' as alternatives. The worker chose MarketReader.get_index_klines (which reads from market.db) rather than IndexFetcher (which uses its own cache DB). This was the right choice since CSI 300 data exists in market.db, but the two data sources for index data (market.db vs index_cache.db) and when to use which isn't documented in AGENTS.md.",
+      "evidence": "src/data_layer/index_fetcher.py exists as an alternative data source for CSI 300, using a separate index_cache.db. src/reporting/tearsheet.py:96 uses MarketReader instead."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. The implementation correctly creates a reporting module with three well-documented functions that extract daily returns, fetch CSI 300 benchmark data, and generate QuantStats HTML tearsheets. All 14 tests pass and cover the required validation criteria (VAL-REPORT-001 through VAL-REPORT-005). The worker identified and resolved the CSI 300 symbol code mismatch (000300 vs 000300.SH) during development. Non-blocking issues are limited to a stale docstring, hardcoded benchmark symbol, and reliance on real market.db in tests. Two shared state observations note the undocumented symbol naming inconsistency between MarketReader and IndexFetcher, which could save future workers debugging time."
+}
