@@ -116,8 +116,136 @@ def get_benchmark_returns(
     return returns
 
 
+def _translate_metrics_to_chinese(html: str) -> str:
+    """Translate English metric labels to Chinese in the HTML tearsheet.
+
+    Parameters
+    ----------
+    html : str
+        HTML content with English labels.
+
+    Returns
+    -------
+    str
+        HTML content with Chinese labels.
+
+    Notes
+    -----
+    This function performs string replacement to translate common QuantStats
+    metric labels, chart titles, and table headers from English to Chinese.
+    """
+    # Define translation mappings
+    translations = {
+        # Metric labels (right side panel)
+        "Start Period": "开始日期",
+        "End Period": "结束日期",
+        "Risk-Free Rate": "无风险利率",
+        "Time in Market": "持仓时间",
+        "Cumulative Return": "累计收益率",
+        "Total Return": "总收益率",
+        "CAGR﹪": "年化收益率",
+        "Sharpe": "夏普比率",
+        "Prob. Sharpe Ratio": "概率夏普比率",
+        "Smart Sharpe": "智能夏普比率",
+        "Sortino": "索提诺比率",
+        "Smart Sortino": "智能索提诺比率",
+        "Sortino/√2": "调整索提诺比率",
+        "Smart Sortino/√2": "智能调整索提诺比率",
+        "Omega": "欧米伽比率",
+        "Max Drawdown": "最大回撤",
+        "Max DD Date": "最大回撤日期",
+        "Max DD Period Start": "回撤期开始",
+        "Max DD Period End": "回撤期结束",
+        "Longest DD Days": "最长回撤天数",
+        "Volatility (ann.)": "波动率 (年化)",
+        "Calmar": "卡玛比率",
+        "Skew": "偏度",
+        "Kurtosis": "峰度",
+        "Expected Daily": "日均收益",
+        "Expected Monthly": "月均收益",
+        "Expected Yearly": "年均收益",
+        "Kelly Criterion": "凯利准则",
+        "Risk of Ruin": "破产风险",
+        "Daily Value-at-Risk": "日均风险价值",
+        "Expected Shortfall (cVaR)": "预期损失",
+        "Max Consecutive Wins": "最大连续盈利",
+        "Max Consecutive Losses": "最大连续亏损",
+        "Gain/Pain Ratio": "收益痛苦比",
+        "Gain/Pain": "收益痛苦比",
+        "Payoff Ratio": "盈亏比",
+        "Profit Factor": "利润因子",
+        "Common Sense Ratio": "常识比率",
+        "CPC Index": "CPC指数",
+        "Tail Ratio": "尾部比率",
+        "Outlier Win Ratio": "异常盈利比率",
+        "Outlier Loss Ratio": "异常亏损比率",
+        "MTD": "月初至今",
+        "3M": "近3个月",
+        "6M": "近6个月",
+        "YTD": "年初至今",
+        "1Y": "近1年",
+        "3Y (ann.)": "近3年(年化)",
+        "5Y (ann.)": "近5年(年化)",
+        "10Y (ann.)": "近10年(年化)",
+        "All-time (ann.)": "全部(年化)",
+        # Chart and section titles
+        "Cumulative Returns": "累计收益",
+        "Returns": "收益率",
+        "Log Returns": "对数收益",
+        "Daily Returns": "日收益率",
+        "Monthly Returns": "月度收益",
+        "Distribution of Returns": "收益分布",
+        "Monthly Distribution": "月度分布",
+        "Rolling Volatility": "滚动波动率",
+        "Rolling Sharpe": "滚动夏普比率",
+        "Rolling Sortino": "滚动索提诺比率",
+        "Rolling Beta": "滚动贝塔系数",
+        "Underwater Plot": "水下图",
+        "Drawdown Periods": "回撤周期",
+        "Worst Drawdowns": "最大回撤",
+        "Worst 10 Drawdowns": "最大回撤 Top 10",
+        "Drawdown": "回撤",
+        "EOY Returns vs Benchmark": "年度收益 vs 基准",
+        "EOY Returns": "年度收益",
+        # Table column headers
+        "Strategy": "策略",
+        "Benchmark": "基准",
+        "Started": "开始",
+        "Recovered": "恢复",
+        "Days": "天数",
+        "Multiplier": "倍数",
+        "Won": "胜出",
+        # Months (for monthly returns heatmap)
+        "Jan": "1月",
+        "Feb": "2月",
+        "Mar": "3月",
+        "Apr": "4月",
+        "May": "5月",
+        "Jun": "6月",
+        "Jul": "7月",
+        "Aug": "8月",
+        "Sep": "9月",
+        "Oct": "10月",
+        "Nov": "11月",
+        "Dec": "12月",
+    }
+
+    # Apply translations
+    for english, chinese in translations.items():
+        # Replace in HTML, being careful to match whole words where possible
+        # Use word boundaries for metric names in tables
+        html = html.replace(f">{english}<", f">{chinese}<")
+        html = html.replace(f">{english}%<", f">{chinese}%<")
+        html = html.replace(f" {english} ", f" {chinese} ")
+        # Also replace in title attributes and labels
+        html = html.replace(f'"{english}"', f'"{chinese}"')
+        html = html.replace(f"'{english}'", f"'{chinese}'")
+
+    return html
+
+
 def generate_portfolio_tearsheet(
-    backtest_result: BacktestResult, reader: MarketReader | None = None
+    backtest_result: BacktestResult, reader: MarketReader | None = None, lang: str = "en"
 ) -> str:
     """Generate a QuantStats HTML tearsheet for the portfolio.
 
@@ -127,6 +255,8 @@ def generate_portfolio_tearsheet(
         The backtest result containing nav_history.
     reader : MarketReader, optional
         MarketReader instance for fetching benchmark data.
+    lang : str, optional
+        Language for the tearsheet. 'en' for English (default), 'zh' for Chinese.
 
     Returns
     -------
@@ -146,6 +276,8 @@ def generate_portfolio_tearsheet(
     - Drawdown analysis
     - Benchmark comparison
     - Risk metrics (Sharpe, Sortino, Calmar, etc.)
+
+    When lang='zh', uses a custom Chinese template and translates metric labels.
     """
     # Extract portfolio returns
     portfolio_returns = extract_daily_returns(backtest_result)
@@ -169,6 +301,15 @@ def generate_portfolio_tearsheet(
         # If no benchmark data, create a zero series
         benchmark_returns = pd.Series(0.0, index=portfolio_returns.index, name="benchmark")
 
+    # Determine template path based on language
+    template_path = None
+    if lang == "zh":
+        # Use custom Chinese template
+        template_path = Path(__file__).parent / "templates" / "tearsheet_zh.html"
+        if not template_path.exists():
+            # Fall back to default if Chinese template doesn't exist
+            template_path = None
+
     # Generate HTML tearsheet using QuantStats
     # We'll write to a temporary file and read it back
     with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as tmp_file:
@@ -180,11 +321,16 @@ def generate_portfolio_tearsheet(
             portfolio_returns,
             benchmark=benchmark_returns,
             output=tmp_path,
-            title="Portfolio Tearsheet",
+            title="投资组合报告" if lang == "zh" else "Portfolio Tearsheet",
+            template_path=str(template_path) if template_path else None,
         )
 
         # Read the HTML file
         html_content = Path(tmp_path).read_text(encoding="utf-8")
+
+        # Post-process HTML to translate metric labels if Chinese
+        if lang == "zh":
+            html_content = _translate_metrics_to_chinese(html_content)
 
         return html_content
     finally:

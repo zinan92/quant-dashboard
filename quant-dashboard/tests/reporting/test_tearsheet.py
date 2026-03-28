@@ -363,3 +363,147 @@ class TestCrossValidation:
         assert "<html" in html.lower()
 
         # All steps completed successfully
+
+
+class TestChineseLanguageSupport:
+    """Test Chinese language support for tearsheets."""
+
+    def test_tearsheet_english_default(self):
+        """Test that default language is English."""
+        # Create minimal backtest result
+        nav_history = [
+            {"date": "2024-01-02", "nav": 1000000.0, "daily_return": 0.0},
+            {"date": "2024-01-03", "nav": 1010000.0, "daily_return": 0.01},
+            {"date": "2024-01-04", "nav": 1015000.0, "daily_return": 0.00495},
+        ]
+
+        result = BacktestResult(
+            start_date="2024-01-02",
+            end_date="2024-01-04",
+            nav_history=nav_history,
+        )
+
+        # Generate with default language (English)
+        html = generate_portfolio_tearsheet(result)
+
+        # Should contain English labels
+        assert "Key Performance Metrics" in html
+        assert "Worst 10 Drawdowns" in html
+        assert "Portfolio Tearsheet" in html
+
+        # Should NOT contain Chinese labels
+        assert "关键绩效指标" not in html
+        assert "最大回撤 Top 10" not in html
+
+    def test_tearsheet_chinese_language(self):
+        """Test tearsheet generation with Chinese language."""
+        nav_history = [
+            {"date": "2024-01-02", "nav": 1000000.0, "daily_return": 0.0},
+            {"date": "2024-01-03", "nav": 1010000.0, "daily_return": 0.01},
+            {"date": "2024-01-04", "nav": 1015000.0, "daily_return": 0.00495},
+        ]
+
+        result = BacktestResult(
+            start_date="2024-01-02",
+            end_date="2024-01-04",
+            nav_history=nav_history,
+        )
+
+        # Generate with Chinese language
+        html = generate_portfolio_tearsheet(result, lang="zh")
+
+        # Should contain Chinese labels
+        assert "关键绩效指标" in html
+        assert "最大回撤 Top 10" in html
+        assert "投资组合报告" in html
+
+        # Should NOT contain English labels (replaced by Chinese)
+        assert "Key Performance Metrics" not in html
+        assert "Worst 10 Drawdowns" not in html
+
+    def test_tearsheet_chinese_metric_translations(self):
+        """Test that specific metric labels are translated to Chinese."""
+        nav_history = []
+        dates = pd.date_range("2024-01-02", "2024-01-31", freq="B")
+
+        for i, date in enumerate(dates):
+            if i == 0:
+                daily_return = 0.0
+                nav = 1000000.0
+            else:
+                daily_return = 0.001 * ((-1) ** i)
+                nav = nav_history[i - 1]["nav"] * (1 + daily_return)
+
+            nav_history.append(
+                {"date": date.strftime("%Y-%m-%d"), "nav": nav, "daily_return": daily_return}
+            )
+
+        result = BacktestResult(
+            start_date="2024-01-02",
+            end_date="2024-01-31",
+            nav_history=nav_history,
+        )
+
+        html = generate_portfolio_tearsheet(result, lang="zh")
+
+        # Check for specific Chinese metric labels
+        # These are the most common metrics that should be translated
+        chinese_metrics = [
+            "夏普比率",  # Sharpe
+            "索提诺比率",  # Sortino
+            "最大回撤",  # Max Drawdown
+            "年化收益率",  # CAGR
+        ]
+
+        for metric in chinese_metrics:
+            assert metric in html, f"Chinese metric '{metric}' not found in HTML"
+
+    def test_tearsheet_both_languages_produce_valid_html(self):
+        """Test that both English and Chinese tearsheets produce valid HTML > 5000 chars."""
+        nav_history = []
+        dates = pd.date_range("2024-01-02", "2024-02-29", freq="B")
+
+        for i, date in enumerate(dates):
+            if i == 0:
+                daily_return = 0.0
+                nav = 1000000.0
+            else:
+                daily_return = 0.002 * ((-1) ** i)
+                nav = nav_history[i - 1]["nav"] * (1 + daily_return)
+
+            nav_history.append(
+                {"date": date.strftime("%Y-%m-%d"), "nav": nav, "daily_return": daily_return}
+            )
+
+        result = BacktestResult(
+            start_date="2024-01-02",
+            end_date="2024-02-29",
+            nav_history=nav_history,
+        )
+
+        # Generate both languages
+        html_en = generate_portfolio_tearsheet(result, lang="en")
+        html_zh = generate_portfolio_tearsheet(result, lang="zh")
+
+        # Both should be valid HTML > 5000 chars
+        assert len(html_en) > 5000
+        assert len(html_zh) > 5000
+        assert "<html" in html_en.lower()
+        assert "<html" in html_zh.lower()
+        assert "</html>" in html_en.lower()
+        assert "</html>" in html_zh.lower()
+
+    def test_chinese_template_file_exists(self):
+        """Test that the Chinese template file exists."""
+        from pathlib import Path
+
+        template_path = Path(__file__).parent.parent.parent / "src" / "reporting" / "templates" / "tearsheet_zh.html"
+        assert template_path.exists(), f"Chinese template not found at {template_path}"
+        assert template_path.is_file()
+
+        # Check that template has basic HTML structure
+        content = template_path.read_text(encoding="utf-8")
+        assert "<!DOCTYPE html>" in content
+        assert "<html" in content
+        assert "</html>" in content
+        assert "关键绩效指标" in content  # Key Performance Metrics in Chinese

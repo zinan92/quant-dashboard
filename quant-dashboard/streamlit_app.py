@@ -268,7 +268,7 @@ if "result" in st.session_state and "last_run" in st.session_state:
 
         with st.spinner(t("generating_tearsheet", st.session_state["lang"])):
             reader = MarketReader()
-            tearsheet_html = generate_portfolio_tearsheet(result, reader)
+            tearsheet_html = generate_portfolio_tearsheet(result, reader, lang=st.session_state["lang"])
 
         # Embed the tearsheet HTML
         components.html(tearsheet_html, height=3000, scrolling=True)
