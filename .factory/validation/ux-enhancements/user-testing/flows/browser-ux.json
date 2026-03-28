@@ -1,0 +1,128 @@
+{
+  "groupId": "browser-ux",
+  "testedAt": "2026-03-28T12:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:8020",
+    "auth": "none",
+    "browserSession": "e3db379d0885__ux"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-UX-001",
+      "title": "Start date allows 2021-01-01",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020", "expected": "App loads with sidebar controls", "observed": "App loaded with language selector, strategy dropdown, date pickers, and Run Backtest button" },
+        { "action": "Click start date input and type 2021/01/01", "expected": "Date 2021-01-01 is accepted (min_value allows it)", "observed": "Calendar showed January 2021 with day 1 highlighted in red. Date field updated to 2021/01/01" },
+        { "action": "Verify date was accepted", "expected": "Field shows 2021/01/01", "observed": "Field value confirmed as 2021/01/01 via get value" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-001-start-date-2021.png"],
+        "consoleErrors": "2x 'save is not defined' (non-critical, from QuantStats iframe)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-002",
+      "title": "Stock dropdown shows ticker and name",
+      "status": "pass",
+      "steps": [
+        { "action": "Switch to Stock Analysis tab after running backtest", "expected": "Stock Analysis tab opens with stock dropdown", "observed": "Tab switched to Stock Analysis, dropdown visible with label 'Select a stock to analyze:'" },
+        { "action": "Click stock dropdown to expand options", "expected": "Dropdown shows stocks in 'TICKER - 股票名称' format", "observed": "Dropdown expanded showing: 000786 - 北新建材, 002233 - 塔牌集团, 600618 - 氯碱化工, 600675 - 中华企业, 600821 - 金开新能" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-002-stock-dropdown.png"],
+        "consoleErrors": "2x 'save is not defined' (non-critical)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-003",
+      "title": "Language switcher exists",
+      "status": "pass",
+      "steps": [
+        { "action": "Navigate to http://localhost:8020", "expected": "Sidebar has a language selector dropdown", "observed": "Language selector combobox visible at top of sidebar, labeled 'Language', showing 'English' selected" },
+        { "action": "Click dropdown to verify options", "expected": "Options include 'English' and '中文'", "observed": "Dropdown expanded showing option 'English' (selected) and option '中文'" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-003-language-selector.png"],
+        "consoleErrors": "none at initial load"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-004",
+      "title": "English mode renders English UI",
+      "status": "pass",
+      "steps": [
+        { "action": "With English selected, verify sidebar labels", "expected": "Strategy, Start Date, End Date, Initial Capital (¥), 🚀 Run Backtest", "observed": "Sidebar showed: 'Backtest Configuration', 'Strategy', 'Date Range', 'Start Date', 'End Date', 'Initial Capital (¥)', '🚀 Run Backtest'" },
+        { "action": "Verify page title", "expected": "📈 A-Share Quant Dashboard", "observed": "Title: '📈 A-Share Quant Dashboard'" },
+        { "action": "After backtest, verify tab names", "expected": "📊 Portfolio Overview, 📈 Stock Analysis", "observed": "Tab names: '📊 Portfolio Overview', '📈 Stock Analysis'" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-004-english-ui.png"],
+        "consoleErrors": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-005",
+      "title": "Chinese mode renders Chinese UI",
+      "status": "pass",
+      "steps": [
+        { "action": "Switch language to 中文", "expected": "Page rerenders with Chinese labels", "observed": "Streamlit reran and all UI labels changed to Chinese" },
+        { "action": "Verify sidebar labels", "expected": "策略, 开始日期, 结束日期, 初始资金 (¥), 🚀 运行回测", "observed": "Sidebar showed: '回测配置', '策略', '日期范围', '开始日期', '结束日期', '初始资金 (¥)', '🚀 运行回测'" },
+        { "action": "Verify page title", "expected": "📈 A股量化交易仪表盘", "observed": "Title: '📈 A股量化交易仪表盘'" },
+        { "action": "After backtest, verify tab names", "expected": "📊 投资组合概览, 📈 个股分析", "observed": "Tab names: '📊 投资组合概览', '📈 个股分析'" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-005-chinese-ui.png", "ux-enhancements/browser-ux/VAL-UX-005-chinese-tabs.png"],
+        "consoleErrors": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-006",
+      "title": "QuantStats tearsheet Chinese template",
+      "status": "pass",
+      "steps": [
+        { "action": "With 中文 selected, run backtest and scroll to QuantStats tearsheet", "expected": "Tearsheet uses Chinese HTML template with Chinese section headers", "observed": "Tearsheet header: '投资组合分析报告 (QuantStats)'. Tearsheet title: '投资组合报告 (Compounded)'. Footer: '由 QuantStats (v 0.0.81) 生成'. Metric cards showed Chinese labels: 总收益率, 年化收益率, 夏普比率, 索提诺比率, 最大回撤, 胜率" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-006-chinese-tearsheet-header.png", "ux-enhancements/browser-ux/VAL-UX-006-scroll1.png", "ux-enhancements/browser-ux/VAL-UX-006-chinese-tearsheet-metrics.png"],
+        "consoleErrors": "2x 'save is not defined' (non-critical, from QuantStats iframe)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UX-007",
+      "title": "QuantStats tearsheet English mode",
+      "status": "pass",
+      "steps": [
+        { "action": "Switch language back to English", "expected": "QuantStats tearsheet renders with English labels", "observed": "Tearsheet header changed to 'Portfolio Tearsheet (QuantStats)'. Tearsheet title: 'Portfolio Tearsheet (Compounded)'. Footer: 'Generated by QuantStats (v. 0.0.81)'. Charts showed English titles: 'Cumulative Returns vs Benchmark'" }
+      ],
+      "evidence": {
+        "screenshots": ["ux-enhancements/browser-ux/VAL-UX-007-english-tearsheet.png"],
+        "consoleErrors": "2x 'save is not defined' (non-critical)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The date input required using keyboard (Ctrl+A then typing) rather than the fill command to change the value. The initial fill command did not update the Streamlit date picker value.",
+      "resolved": true,
+      "resolution": "Used click + Ctrl+A + keyboard type + Enter to successfully set the date to 2021/01/01",
+      "affectedAssertions": ["VAL-UX-001"]
+    },
+    {
+      "description": "After switching language, the start date value reverted to the default (2025/12/28) instead of preserving the manually set 2021/01/01. This is expected Streamlit behavior (widget default values reset on rerun).",
+      "resolved": true,
+      "resolution": "Not a bug — Streamlit date_input uses default_value on each rerun. The min_value still allows 2021-01-01.",
+      "affectedAssertions": ["VAL-UX-001"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions: all 7 passed. Language switcher (VAL-UX-003) shows English/中文 options. English mode (VAL-UX-004) renders all UI labels in English. Chinese mode (VAL-UX-005) renders all UI labels in Chinese. Start date allows 2021-01-01 (VAL-UX-001). Stock dropdown shows ticker + Chinese name format (VAL-UX-002). QuantStats tearsheet uses Chinese template in 中文 mode (VAL-UX-006) and English template in English mode (VAL-UX-007). Minor console errors ('save is not defined') from QuantStats iframe are non-functional."
+}

@@ -1,0 +1,42 @@
+{
+  "groupId": "shell-ux",
+  "testedAt": "2026-03-28T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/quant-dashboard",
+    "database": "/Users/wendy/work/trading-co/ashare/data/market.db"
+  },
+  "toolsUsed": ["python", "sqlite3", "grep"],
+  "assertions": [
+    {
+      "id": "VAL-UX-008",
+      "title": "Stock names loaded from database",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect get_stock_names source code via grep",
+          "expected": "Function queries stock_basic table in market.db",
+          "observed": "get_stock_names() in backtesting_adapter.py calls reader.get_stock_basic(), which queries 'SELECT * FROM stock_basic'. It joins on symbol column and extracts name column."
+        },
+        {
+          "action": "Verify stock_basic table exists in market.db with name column via sqlite3",
+          "expected": "Table has symbol and name columns with data",
+          "observed": "sqlite3 query 'SELECT symbol, name FROM stock_basic LIMIT 5' returned 5 rows: 000001|平安银行, 000002|万科Ａ, 000004|*ST国华, 000006|深振业Ａ, 000007|全新好"
+        },
+        {
+          "action": "Run Python unit test calling get_stock_names with 20 symbols",
+          "expected": "Returns non-empty dict mapping tickers to Chinese stock names",
+          "observed": "Got 20 stock names. All are non-empty strings. Samples: 000001 -> 平安银行, 000002 -> 万科Ａ, 000009 -> 中国宝安, 000012 -> 南玻Ａ, 000019 -> 深粮控股"
+        }
+      ],
+      "evidence": {
+        "pythonTest": "get_stock_names(symbols[:20], reader) returned 20 names, all non-empty Chinese strings. Assertions passed: len(names) > 0, isinstance(name, str), len(name) > 0 for all entries.",
+        "sourceCode": "backtesting_adapter.py:83 defines get_stock_names() which calls reader.get_stock_basic() at line 105. market_reader.py:238 defines get_stock_basic() querying 'SELECT * FROM stock_basic'. Names joined via stock_basic_df['symbol'] and stock_basic_df['name'].",
+        "databaseQuery": "sqlite3 ashare/data/market.db 'SELECT symbol, name FROM stock_basic LIMIT 5' -> 000001|平安银行, 000002|万科Ａ, 000004|*ST国华, 000006|深振业Ａ, 000007|全新好"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 1 assertion: 1 passed. VAL-UX-008 confirmed that stock names are fetched from the stock_basic table in market.db, returning non-empty Chinese names for known tickers."
+}

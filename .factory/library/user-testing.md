@@ -402,3 +402,106 @@ Write a JSON report to `.factory/validation/dashboard-rewrite/user-testing/flows
 
 ### Evidence format:
 Write a JSON report to `.factory/validation/dashboard-rewrite/user-testing/flows/shell-assertions.json`
+
+---
+
+## Flow Validator Guidance: agent-browser (ux-enhancements)
+
+**App URL:** http://localhost:8020
+**Auth:** None required — Streamlit app loads directly, no login needed.
+**Testing tool:** `agent-browser` skill (invoke via Skill tool at start of session)
+
+### UX Enhancements Layout:
+The ux-enhancements milestone adds:
+1. **Date range fix** — Start date min_value is 2021-01-01 (not 2025-11-01)
+2. **Stock names** — Stock dropdown shows "TICKER - 股票名称" format
+3. **Language switcher** — Sidebar has English/中文 selector at top
+4. **i18n** — All UI text translates between English and Chinese
+
+### Sidebar layout (top to bottom):
+1. Language selector dropdown: `["English", "中文"]`
+2. Divider
+3. "⚙️ Backtest Configuration" (translated in Chinese mode)
+4. Strategy dropdown
+5. Date Range subheader
+6. Start Date picker (min_value=2021-01-01)
+7. End Date picker
+8. Initial Capital input
+9. "🚀 Run Backtest" button
+
+### Testing workflow for UX assertions:
+1. Navigate to http://localhost:8020
+2. **VAL-UX-003**: Check sidebar for language selector. Should be a dropdown with "English" and "中文" options.
+3. **VAL-UX-001**: Check start date picker. Try to select 2021-01-01 — it should be allowed (min_value is 2021-01-01).
+4. **VAL-UX-004**: Ensure "English" is selected. Verify all UI labels are in English: tab names ("📊 Portfolio Overview", "📈 Stock Analysis"), sidebar ("Strategy", "Start Date", "End Date"), button ("🚀 Run Backtest").
+5. **VAL-UX-005**: Switch language to "中文". Verify all UI labels change to Chinese: tab names ("📊 投资组合概览", "📈 个股分析"), sidebar ("策略", "开始日期", "结束日期"), button ("🚀 运行回测").
+6. Run a backtest (click the Run Backtest button, wait for completion).
+7. **VAL-UX-006**: With 中文 selected, scroll to the QuantStats tearsheet iframe. Verify it shows Chinese section headers/labels.
+8. **VAL-UX-007**: Switch back to English. The QuantStats tearsheet should show English labels.
+9. **VAL-UX-002**: Switch to Stock Analysis tab. Check the stock dropdown — it should show format "000001 - 平安银行" (ticker + Chinese name).
+
+### Scrolling in Streamlit:
+- Use `--selector "[data-testid=stMain]"` for scrolling the main content area
+- QuantStats tearsheet is embedded in an iframe via `st.components.v1.html()`
+
+### Important quirks:
+- Language switching causes a Streamlit rerun — the page reloads
+- After switching language, you may need to re-run the backtest (session_state["backtest_result"] may persist but the page rerenders)
+- The language selector is at the TOP of the sidebar, before other controls
+- Stock names are loaded from `stock_basic` table in market.db
+
+### Isolation rules:
+- Single browser session — all assertions are sequential (language switching is global)
+- Backtest modifies session_state — only one browser instance
+
+### Evidence format:
+Write a JSON report to `.factory/validation/ux-enhancements/user-testing/flows/<group-id>.json` with:
+```json
+{
+  "groupId": "<group-id>",
+  "assertions": [
+    {
+      "id": "VAL-UX-NNN",
+      "status": "pass" | "fail" | "blocked",
+      "reason": "description of what was observed",
+      "evidence": "screenshot filename or description"
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "toolsUsed": ["agent-browser"]
+}
+```
+
+## Flow Validator Guidance: shell (ux-enhancements)
+
+**Testing surface:** Python unit test — verify stock names loaded from database
+**Tool:** Execute tool with Python
+**Project root:** `/Users/wendy/work/trading-co/quant-dashboard`
+**Database:** `/Users/wendy/work/trading-co/ashare/data/market.db`
+
+### What to test:
+- VAL-UX-008: Stock names are fetched from `stock_basic` table in market.db. Run:
+  ```
+  cd /Users/wendy/work/trading-co/quant-dashboard && python3 -c "
+  from src.adapters.backtesting_adapter import get_stock_names
+  from src.data_layer.market_reader import MarketReader
+  reader = MarketReader()
+  names = get_stock_names(reader)
+  # Check that at least some names are returned and they're non-empty
+  assert len(names) > 0, f'Expected stock names, got {len(names)}'
+  # Check a known ticker has a name
+  assert '000001' in names or any('000001' in k for k in names), 'Missing 000001'
+  print(f'Got {len(names)} stock names')
+  # Show a sample
+  for k, v in list(names.items())[:5]:
+      print(f'  {k} -> {v}')
+  print('VAL-UX-008: PASS')
+  "
+  ```
+
+### Isolation rules:
+- Read-only — no shared state
+
+### Evidence format:
+Write a JSON report to `.factory/validation/ux-enhancements/user-testing/flows/shell-ux.json`
