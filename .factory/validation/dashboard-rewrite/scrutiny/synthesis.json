@@ -1,0 +1,56 @@
+{
+  "milestone": "dashboard-rewrite",
+  "round": 1,
+  "status": "pass",
+  "validatorsRun": {
+    "test": { "passed": true, "command": "cd quant-dashboard && python3 -m pytest tests/ -v --tb=short -x", "exitCode": 0, "detail": "177 passed, 27 warnings" },
+    "typecheck": { "passed": true, "command": "cd quant-dashboard && python3 -m mypy src/ --ignore-missing-imports", "exitCode": 0, "detail": "Success: no issues found in 17 source files" },
+    "lint": { "passed": true, "command": "cd quant-dashboard && python3 -m ruff check src/", "exitCode": 0, "detail": "All checks passed!" }
+  },
+  "reviewsSummary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "failedFeatures": []
+  },
+  "blockingIssues": [],
+  "nonBlockingIssues": [
+    {
+      "featureId": "streamlit-dashboard-rewrite",
+      "severity": "non_blocking",
+      "description": "Welcome message (lines 372-395) still references old Plotly-based features (NAV Chart, Drawdown Chart, Monthly Returns Heatmap, Per-Stock Performance) that were removed in the rewrite. Should be updated to describe the new two-tab layout with QuantStats tearsheet and Bokeh charts."
+    },
+    {
+      "featureId": "streamlit-dashboard-rewrite",
+      "severity": "non_blocking",
+      "description": "CAGR calculation at line 200 ((1 + profit_total) ** (1/years) - 1) will fail if profit_total < -1 (total loss exceeds 100%), as it would attempt to raise a negative number to a fractional power. Edge case is unlikely but could occur."
+    },
+    {
+      "featureId": "streamlit-dashboard-rewrite",
+      "severity": "non_blocking",
+      "description": "Per-stock metrics (Sharpe Ratio, Max Drawdown, Return) from backtesting.py stats_dict can be NaN when insufficient trades occur. Formatting NaN with f-strings displays 'nan'. Consider graceful fallback display."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated .factory/library/architecture.md to reflect new two-tab dashboard architecture with backtesting.py (Bokeh) + QuantStats, new src/adapters/ and src/reporting/ packages, and updated project structure and key design decisions (removed Plotly references).",
+      "sourceFeature": "streamlit-dashboard-rewrite"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Update port documentation: AGENTS.md says 'Port Range: 8501 (Streamlit default)' but services.yaml uses port 8020 ('--server.port 8020'). The validation contract VAL-DASH-001 also references localhost:8501. Recommend aligning AGENTS.md to say port 8020, or updating services.yaml to use 8501. Current discrepancy may confuse future workers and user-testing validators.",
+      "evidence": "services.yaml shows '--server.port 8020' with healthcheck on port 8020, while AGENTS.md says 'Port Range: 8501 (Streamlit default)' and VAL-DASH-001 references localhost:8501.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Welcome message text still references old Plotly features",
+      "reason": "Already captured as a non-blocking code review issue. Not a shared state concern — it's a cosmetic issue in the application source code, not documentation or configuration drift."
+    }
+  ],
+  "previousRound": null
+}

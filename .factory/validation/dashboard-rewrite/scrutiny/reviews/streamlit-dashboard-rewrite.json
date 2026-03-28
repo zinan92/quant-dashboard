@@ -1,0 +1,50 @@
+{
+  "featureId": "streamlit-dashboard-rewrite",
+  "reviewedAt": "2026-03-28T05:35:00.000Z",
+  "commitId": "6ca1e486184d11ac46e133a6441931a2005a1b70",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The streamlit_app.py rewrite is well-executed. The worker replaced all Plotly chart code (NAV chart, drawdown chart, monthly heatmap, per-stock bar chart) with a clean two-tab layout using QuantStats tearsheet and backtesting.py Bokeh charts, both embedded via st.components.v1.html(). The 6 metric cards (Total Return, CAGR, Sharpe, Sortino, Max Drawdown, Win Rate) are correctly implemented. Tab 2 correctly filters stocks with trades and runs per-stock backtests with Bokeh visualization. Session state caching for backtest results is preserved. All 177 tests pass. Only file changed was streamlit_app.py (193 insertions, 321 deletions). No off-limits files (src/strategy/, src/backtest/, src/data_layer/) were modified. Two non-blocking issues identified: the welcome message still references old Plotly features that no longer exist, and CAGR calculation has a theoretical edge case with extreme losses.",
+    "issues": [
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 378,
+        "severity": "non_blocking",
+        "description": "Welcome message still references old Plotly-based features that were removed: 'Interactive NAV Chart: Compare strategy performance against CSI 300 and ChiNext benchmarks', 'Drawdown Chart: Visualize underwater periods', 'Monthly Returns Heatmap: See seasonality patterns', 'Per-Stock Performance: Identify top performers'. Should be updated to reference the new two-tab layout with QuantStats tearsheet and Bokeh charts."
+      },
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 200,
+        "severity": "non_blocking",
+        "description": "CAGR calculation: `(1 + metrics['profit_total']) ** (1 / years) - 1` will fail if profit_total < -1 (total loss exceeds 100%), as it would attempt to raise a negative number to a fractional power. This is theoretically possible if the backtest engine allows negative NAV. Adding a guard like `max(0, 1 + metrics['profit_total'])` would be safer."
+      },
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 322,
+        "severity": "non_blocking",
+        "description": "stats_dict.get('Sharpe Ratio', 0.0) defaults to 0.0, but backtesting.py can return NaN for Sharpe Ratio when there are insufficient trades. Formatting NaN with f'{sharpe:.3f}' works but displays 'nan'. Same applies to 'Max. Drawdown [%]' and 'Return [%]'. Consider handling NaN gracefully with a display fallback."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The welcome message (shown before any backtest is run) still references the old Plotly-based feature list (NAV Chart, Drawdown Chart, Monthly Returns Heatmap, Per-Stock Performance bar chart). This was part of the old code that the worker did not update to match the new two-tab layout. AGENTS.md says 'No custom Plotly charts' but doesn't explicitly require updating the welcome text. The welcome message is cosmetic but misleads users about what the app actually does.",
+      "evidence": "quant-dashboard/streamlit_app.py lines 372-395: Welcome markdown still lists '📈 Interactive NAV Chart', '📉 Drawdown Chart', '🔥 Monthly Returns Heatmap', '🏆 Per-Stock Performance' — all of which were removed in this commit."
+    },
+    {
+      "area": "conventions",
+      "observation": "architecture.md in .factory/library/ still documents the old Plotly-based architecture ('Plotly for charts: All interactive charts (NAV, drawdown, heatmap, bar) use plotly.graph_objects via st.plotly_chart()') and old project structure. It was not updated to reflect the new two-tab architecture with QuantStats and Bokeh. This is a documentation drift concern.",
+      "evidence": ".factory/library/architecture.md Key Design Decision #3: 'Plotly for charts: All interactive charts (NAV, drawdown, heatmap, bar) use plotly.graph_objects via st.plotly_chart().' — this is no longer true after the dashboard rewrite."
+    },
+    {
+      "area": "services",
+      "observation": "services.yaml uses port 8020 for Streamlit but AGENTS.md says 'Port Range: 8501 (Streamlit default)'. The validation contract VAL-DASH-001 checks localhost:8501. This discrepancy exists from before this feature but may cause confusion during validation.",
+      "evidence": ".factory/services.yaml shows '--server.port 8020' while AGENTS.md says 'Port Range: 8501 (Streamlit default)' and VAL-DASH-001 references 'localhost:8501'."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The dashboard rewrite is solid — all Plotly code removed, two-tab layout implemented correctly with QuantStats tearsheet (Tab 1) and Bokeh charts (Tab 2), 6 metric cards present, session state caching preserved, all 177 tests pass, and no off-limits files were modified. Three non-blocking issues found: (1) welcome message still references old removed features, (2) CAGR edge case with extreme losses, (3) potential NaN display in per-stock metrics. The implementation faithfully follows the feature description and AGENTS.md conventions."
+}
