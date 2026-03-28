@@ -159,3 +159,27 @@ class TestAshareCommission:
         commission = ashare_commission(size=-100, price=10.0, is_buy=False)
         expected = 6.0  # Same as positive 100
         assert commission == expected, "Negative size should be handled with abs()"
+
+    def test_two_arg_callback_positive_size(self):
+        """Test 2-arg callback with positive size (inferred as buy)."""
+        # backtesting.py calls commission(size, price) with only 2 args
+        # Positive size should be inferred as buy
+        commission = ashare_commission(100, 10.0)
+        assert commission == 5.0, "Positive size should be inferred as buy (no stamp tax)"
+
+    def test_two_arg_callback_negative_size(self):
+        """Test 2-arg callback with negative size (inferred as sell)."""
+        # backtesting.py calls commission(size, price) with only 2 args
+        # Negative size should be inferred as sell
+        commission = ashare_commission(-100, 10.0)
+        assert commission == 6.0, "Negative size should be inferred as sell (with stamp tax)"
+
+    def test_two_arg_callback_large_trade(self):
+        """Test 2-arg callback with larger trade sizes."""
+        # Buy trade (positive size)
+        buy_commission = ashare_commission(10000, 50.0)
+        assert buy_commission == 150.0, "Large buy should calculate correctly"
+
+        # Sell trade (negative size)
+        sell_commission = ashare_commission(-10000, 50.0)
+        assert sell_commission == 650.0, "Large sell should calculate correctly with stamp tax"

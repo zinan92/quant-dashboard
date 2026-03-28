@@ -252,12 +252,12 @@ class TestRunSingleStockBacktest:
             assert isinstance(num_trades, (int, float))
             assert num_trades >= 0
 
-    def test_longer_timeframe(self, reader):
-        """Test backtest with a longer timeframe (3 months)."""
+    def test_longer_timeframe_with_actual_trades(self, reader):
+        """Test backtest with a longer timeframe (5 years) to generate actual trades."""
         stats, html = run_single_stock_backtest(
             symbol="000001",
-            start_date="2025-12-01",
-            end_date="2026-03-01",
+            start_date="2021-01-01",
+            end_date="2025-12-31",
             initial_capital=100000.0,
             reader=reader,
         )
@@ -266,3 +266,11 @@ class TestRunSingleStockBacktest:
         assert stats is not None
         assert html is not None
         assert len(html) > 1000
+
+        # Verify trades were generated
+        num_trades = stats.get("# Trades", 0)
+        assert num_trades > 0, f"Expected trades to be generated, but got {num_trades} trades"
+
+        # Note: backtesting.py doesn't expose individual trade sizes in stats,
+        # but we verify lot rounding logic through unit tests above
+        print(f"Generated {num_trades} trades over 5-year period")

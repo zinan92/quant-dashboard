@@ -80,7 +80,7 @@ def prepare_backtesting_data(
     return df
 
 
-def ashare_commission(size: float, price: float, is_buy: bool) -> float:
+def ashare_commission(size: float, price: float, is_buy: bool | None = None) -> float:
     """Calculate A-share commission for a trade.
 
     A-share commission model:
@@ -92,18 +92,24 @@ def ashare_commission(size: float, price: float, is_buy: bool) -> float:
     Parameters
     ----------
     size : float
-        Trade size in shares (positive for buy, typically negative for sell,
-        but we use abs() to handle both).
+        Trade size in shares. When called by backtesting.py's 2-arg callback:
+        positive for buy, negative for sell. The is_buy parameter will be inferred
+        from the sign if not provided.
     price : float
         Trade price per share.
-    is_buy : bool
-        True for buy trades, False for sell trades.
+    is_buy : bool | None, optional
+        True for buy trades, False for sell trades. If None, inferred from size:
+        is_buy = (size > 0). Defaults to None.
 
     Returns
     -------
     float
         Total commission in currency units.
     """
+    # Infer is_buy from sign of size if not provided
+    if is_buy is None:
+        is_buy = size > 0
+
     # Base commission: 0.03% with minimum 5 yuan
     base_commission = max(5.0, abs(size) * price * 0.0003)
 
