@@ -1,0 +1,56 @@
+{
+  "featureId": "i18n-streamlit-ui",
+  "reviewedAt": "2026-03-28T06:30:00.000Z",
+  "commitId": "8cf35e6",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The i18n module and streamlit_app.py integration are structurally well-organized, with comprehensive translation coverage for Chinese. However, there is a critical blocking bug: the English UI is completely broken. The t() function returns the raw key when lang='en', but all keys are machine-readable identifiers (e.g., 'sidebar_title', 'total_return', 'run_backtest') rather than human-readable English text. This means English-mode users see 'sidebar_title' instead of '⚙️ Backtest Configuration', 'total_return' instead of 'Total Return', 'cagr' instead of 'CAGR', etc. The entire English UI is degraded to ugly underscore-separated identifiers.",
+    "issues": [
+      {
+        "file": "quant-dashboard/src/i18n.py",
+        "line": 120,
+        "severity": "blocking",
+        "description": "The t() function returns the key itself when lang='en', but keys are machine-readable identifiers (e.g., 'sidebar_title', 'total_return', 'run_backtest') not human-readable English text. This breaks the entire English UI. Fix requires either: (a) using the actual English text as keys (e.g., TRANSLATIONS['Total Return'] = '总收益率') so t('Total Return', 'en') returns 'Total Return', or (b) storing both 'en' and 'zh' values in TRANSLATIONS and looking up both languages."
+      },
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 64,
+        "severity": "blocking",
+        "description": "st.sidebar.title(t('sidebar_title', ...)) renders 'sidebar_title' in English mode instead of '⚙️ Backtest Configuration'. All ~40 t() calls throughout the file exhibit this same issue — every user-visible string displays as a raw key in English mode."
+      },
+      {
+        "file": "quant-dashboard/streamlit_app.py",
+        "line": 31,
+        "severity": "non_blocking",
+        "description": "st.set_page_config(page_title='A-Share Quant Dashboard — Chan Theory') is hardcoded in English and not wrapped with t(). A 'page_title' key exists in TRANSLATIONS but is never used. However, since set_page_config must be called before session_state is populated, this is a Streamlit limitation and is acceptable."
+      },
+      {
+        "file": "quant-dashboard/tests/test_i18n.py",
+        "line": 14,
+        "severity": "non_blocking",
+        "description": "test_english_returns_key asserts t('total_return', 'en') == 'total_return', which validates the broken behavior. The test should verify that English mode returns a human-readable label like 'Total Return', not the raw key 'total_return'."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md documents port 8501 (Streamlit default) but services.yaml uses port 8020. The worker used port 8020 per services.yaml, which is correct, but AGENTS.md is stale.",
+      "evidence": "AGENTS.md line 5: 'Port Range: 8501 (Streamlit default)' vs .factory/services.yaml: 'port: 8020'"
+    },
+    {
+      "area": "conventions",
+      "observation": "The i18n section in AGENTS.md was presumably added by this or a related feature, documenting the pattern. However, AGENTS.md does not document the key naming convention for translations (whether keys should be human-readable English text or machine-readable identifiers), which led to the English UI bug.",
+      "evidence": "AGENTS.md i18n section describes t(key, lang) and language selector, but doesn't specify what form keys should take."
+    },
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill procedure focuses heavily on API endpoints and FreqTrade compatibility, with minimal guidance for Streamlit UI work. The skill's manual verification step says to use curl for API testing, which doesn't apply to Streamlit i18n work. Worker followed procedure (ran tests, started server, health-checked) but didn't visually verify the English UI — a browser-based check would have caught the broken English labels.",
+      "evidence": "SKILL.md step 5 says 'For API endpoints: use curl to test against the running server'. Worker confirmed skillFeedback.followedProcedure=true but the procedure doesn't include visual UI verification for Streamlit features."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "FAIL — The Chinese translation implementation is comprehensive and correct (60+ keys, format placeholders preserved, well-structured module). However, there is a critical blocking bug: the English UI is completely broken. The t() function returns raw identifier keys (e.g., 'sidebar_title', 'total_return', 'cagr') in English mode instead of human-readable labels ('⚙️ Backtest Configuration', 'Total Return', 'CAGR'). Every user-visible string in the app displays as an ugly machine-readable key when English is selected. The fix requires either restructuring keys to be the English text itself, or adding English values to the translations dict. The test suite validates the broken behavior (asserting t('total_return','en')=='total_return'), so 196 tests passing is not evidence of correctness."
+}

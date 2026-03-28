@@ -1,0 +1,44 @@
+{
+  "featureId": "fix-date-range-and-stock-names",
+  "reviewedAt": "2026-03-28T06:05:00.000Z",
+  "commitId": "56bc5a7fd50842c2005d41a3173de419d2a763db",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation correctly addresses both requirements: (1) start date min_value changed from 2025-11-01 to 2021-01-01, and (2) stock name lookup added via get_stock_names() with dropdown showing 'TICKER - 股票名称' format. The code is clean, well-documented, handles edge cases (empty list, nonexistent symbols, fallback to bare ticker), and includes 7 tests. All 184 tests pass. Two minor non-blocking issues noted.",
+    "issues": [
+      {
+        "file": "quant-dashboard/tests/adapters/test_backtesting_adapter.py",
+        "line": 249,
+        "severity": "non_blocking",
+        "description": "test_get_stock_names_result_keys_match_input has a trivially-true assertion: iterates over `symbols`, checks `if symbol in names`, then asserts `symbol in symbols` — which is always true since `symbol` comes from iterating `symbols`. The test doesn't meaningfully verify that no unexpected keys exist in the result. A stronger assertion would be `assert set(names.keys()).issubset(set(symbols))`."
+      },
+      {
+        "file": ".factory/validation/health-dashboard-upgrade/user-testing/synthesis.json",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "Commit includes an unrelated file (.factory/validation/health-dashboard-upgrade/user-testing/synthesis.json) that belongs to a different milestone. This doesn't affect functionality but pollutes the feature's commit scope."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md says port 8501 for Streamlit ('Port Range: 8501 (Streamlit default)') but services.yaml declares port 8020. The worker correctly used port 8020 from services.yaml. AGENTS.md should be updated to match services.yaml (port 8020).",
+      "evidence": "AGENTS.md line 'Port Range: 8501 (Streamlit default)' vs .factory/services.yaml 'port: 8020'. Worker transcript shows 'python3 -m streamlit run streamlit_app.py --server.port 8020'."
+    },
+    {
+      "area": "conventions",
+      "observation": "AGENTS.md mentions '133 existing tests must always pass' as baseline, but the actual baseline is now 177 tests (and 184 after this feature). The test count in AGENTS.md is stale.",
+      "evidence": "AGENTS.md says '133 existing tests must always pass'. Handoff verification shows 184 tests total (177 existing + 7 new)."
+    },
+    {
+      "area": "skills",
+      "observation": "The backend-worker skill says to use port 8501 for Streamlit manual verification, but services.yaml uses port 8020. Skill step 6 should reference services.yaml instead of hardcoding a port.",
+      "evidence": "SKILL.md step 6: 'streamlit run streamlit_app.py --server.port 8501 --server.headless true &' vs services.yaml port 8020."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Feature passes review. Both requirements (extended date range to 2021-01-01 and stock name display in dropdown) are correctly implemented with proper edge case handling and 7 new tests. The get_stock_names() function queries stock_basic via MarketReader.get_stock_basic(), filters by symbol, and returns a dict mapping. The dropdown uses a display_map pattern to show 'TICKER - 名称' while preserving the symbol for backtest execution. Minor issues: one trivially-true test assertion and an unrelated file included in the commit. Three shared state observations about stale port/test-count references in AGENTS.md and the skill file."
+}
