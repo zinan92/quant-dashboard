@@ -1,0 +1,104 @@
+{
+  "groupId": "shell-assertions",
+  "testedAt": "2026-03-28T00:00:00Z",
+  "isolation": {
+    "projectRoot": "/Users/wendy/work/trading-co/quant-dashboard",
+    "scope": "read-only shell commands"
+  },
+  "toolsUsed": ["pytest", "python", "git", "grep"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Existing test suite passes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run python3 -m pytest tests/ -v --tb=short",
+          "expected": "Exit code 0, ≥133 tests pass",
+          "observed": "Exit code 0, 177 tests passed (27 warnings)"
+        }
+      ],
+      "evidence": {
+        "outputFile": "dashboard-rewrite/shell-assertions/VAL-CROSS-002-pytest-output.txt",
+        "summary": "177 passed, 27 warnings in 8.03s. Exit code 0."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "No import regressions",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run python3 -c 'from src.backtest.engine import BacktestEngine; from src.strategy.chan_theory import ChanTheoryStrategy; print(\"OK\")'",
+          "expected": "Exit code 0, outputs 'OK'",
+          "observed": "Exit code 0, output: 'OK'"
+        }
+      ],
+      "evidence": {
+        "outputFile": "dashboard-rewrite/shell-assertions/VAL-CROSS-003-import-check.txt",
+        "summary": "Import succeeded, printed OK, exit code 0."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "BacktestEngine unchanged",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run git diff HEAD -- src/backtest/engine.py",
+          "expected": "Empty output (no changes)",
+          "observed": "Empty output — no diff"
+        }
+      ],
+      "evidence": {
+        "outputFile": "dashboard-rewrite/shell-assertions/VAL-CROSS-004-git-diff.txt",
+        "summary": "git diff returned empty output. src/backtest/engine.py is unchanged."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "title": "New adapter tests exist",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run python3 -m pytest tests/adapters/ tests/reporting/ -v --tb=short",
+          "expected": "≥8 new tests pass",
+          "observed": "44 tests passed (14 adapter data tests + 16 strategy/backtest tests + 14 reporting tests)"
+        }
+      ],
+      "evidence": {
+        "outputFile": "dashboard-rewrite/shell-assertions/VAL-CROSS-005-adapter-tests.txt",
+        "summary": "44 passed, 27 warnings in 4.78s. Well above ≥8 threshold."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DASH-007",
+      "title": "No st.pyplot() calls in streamlit_app.py source; all charts use st.components.v1.html()",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "grep -n 'st.pyplot' streamlit_app.py",
+          "expected": "No matches",
+          "observed": "No matches found"
+        },
+        {
+          "action": "grep -n 'components' streamlit_app.py",
+          "expected": "Matches showing st.components.v1.html() usage",
+          "observed": "Line 16: import streamlit.components.v1 as components; Line 238: components.html(tearsheet_html, height=3000, scrolling=True); Line 308: components.html(bokeh_html, height=800, scrolling=False)"
+        }
+      ],
+      "evidence": {
+        "outputFile": "dashboard-rewrite/shell-assertions/VAL-DASH-007-code-check.txt",
+        "summary": "No st.pyplot() calls found. streamlit_app.py uses 'import streamlit.components.v1 as components' and calls components.html() at lines 238 and 308 for QuantStats tearsheet and Bokeh chart embedding."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed, 0 failed. All 177 tests pass (exit 0), imports clean, engine unchanged, 44 adapter/reporting tests exist, no st.pyplot() in source, charts use components.html()."
+}

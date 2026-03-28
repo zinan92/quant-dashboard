@@ -338,3 +338,67 @@ Write a JSON report to `.factory/validation/backtest-adapters/user-testing/flows
 - Start with: `python3 -m streamlit run streamlit_app.py --server.port 8020 --server.headless true`
 - The `streamlit` command may not be in PATH — use `python3 -m streamlit` instead.
 - Healthcheck: `curl -sf http://localhost:8020/_stcore/health`
+
+## Flow Validator Guidance: agent-browser (dashboard-rewrite)
+
+**App URL:** http://localhost:8020
+**Auth:** None required — Streamlit app loads directly, no login needed.
+**Testing tool:** `agent-browser` skill (invoke via Skill tool at start of session)
+**Session naming:** Use `--session "3b6187199a80__browser"` for browser sessions.
+
+### Dashboard-Rewrite Layout (NEW — 2-tab design):
+- **Sidebar (left):** Backtest Configuration panel with:
+  - "Strategy" dropdown (should list `chan_theory`)
+  - "Start Date" and "End Date" date pickers
+  - "Initial Capital" number input
+  - "🚀 Run Backtest" button
+- **Main area (center):** Two tabs: "Portfolio Overview" and "Stock Analysis"
+  - Before running: may show welcome message or empty state
+  - After running backtest:
+    - **Tab 1 "Portfolio Overview":** 6 metric cards (Total Return, CAGR, Sharpe, Sortino, Max Drawdown, Win Rate), embedded QuantStats HTML tearsheet via `st.components.v1.html()`, expandable trade history
+    - **Tab 2 "Stock Analysis":** Stock dropdown for traded stocks, backtesting.py Bokeh chart embedded via `st.components.v1.html()`, per-stock metrics
+
+### Key testing steps for dashboard-rewrite:
+1. Navigate to http://localhost:8020
+2. Verify sidebar controls (strategy selector, dates, capital, run button)
+3. Verify two tabs visible: "Portfolio Overview" and "Stock Analysis"
+4. Click "🚀 Run Backtest" in sidebar
+5. Wait for backtest completion (under 2 seconds typically)
+6. Check Portfolio Overview tab: metric cards + QuantStats tearsheet iframe
+7. Switch to Stock Analysis tab: stock dropdown + Bokeh chart
+8. Switch back to Portfolio Overview: verify results preserved (no re-run)
+
+### Important notes:
+- The dashboard uses `st.components.v1.html()` for both QuantStats and Bokeh charts — these render as iframes
+- No st.pyplot() calls should exist in the source code
+- Charts are embedded HTML, not native Streamlit elements
+- Scrolling within Streamlit: use `--selector [data-testid=stMain]` for main area scrolling
+- Backtest is very fast (<2s) — you may not see the progress bar
+
+### Isolation rules:
+- One browser session is sufficient — all assertions are sequential
+- Backtest modifies session_state but only within one browser tab
+
+### Evidence format:
+Write a JSON report to `.factory/validation/dashboard-rewrite/user-testing/flows/<group-id>.json`
+
+## Flow Validator Guidance: shell (dashboard-rewrite)
+
+**Testing surface:** Shell commands — pytest, python -c, git diff, grep
+**Tool:** No special skill needed — use Execute, Read, Grep tools directly
+**Project root:** `/Users/wendy/work/trading-co/quant-dashboard`
+**Mission dir:** `/Users/wendy/.factory/missions/5ccfbb11-945c-4b92-969a-cfbdf3f9d668`
+
+### What to test:
+- VAL-CROSS-002: `cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m pytest tests/ -v --tb=short` exits 0
+- VAL-CROSS-003: `cd /Users/wendy/work/trading-co/quant-dashboard && python3 -c "from src.backtest.engine import BacktestEngine; from src.strategy.chan_theory import ChanTheoryStrategy; print('OK')"`
+- VAL-CROSS-004: `cd /Users/wendy/work/trading-co/quant-dashboard && git diff HEAD -- src/backtest/engine.py` shows no changes
+- VAL-CROSS-005: `cd /Users/wendy/work/trading-co/quant-dashboard && python3 -m pytest tests/adapters/ tests/reporting/ -v --tb=short` shows ≥8 new tests passing
+- VAL-DASH-007 (code part): `grep -n 'st.pyplot' /Users/wendy/work/trading-co/quant-dashboard/streamlit_app.py` returns no matches
+
+### Isolation rules:
+- All assertions are read-only — can run in any order or parallel
+- No shared mutable state
+
+### Evidence format:
+Write a JSON report to `.factory/validation/dashboard-rewrite/user-testing/flows/shell-assertions.json`
