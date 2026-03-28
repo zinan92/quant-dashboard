@@ -1,28 +1,24 @@
 """Streamlit dashboard for A-Share quantitative trading showcase.
 
-This dashboard provides a complete quantitative trading showcase interface with:
+This dashboard provides a professional quantitative trading interface with:
 - Strategy selection and backtest parameter configuration
-- Performance metrics display (Total Return, CAGR, Sharpe, MaxDD, Win Rate, etc.)
-- NAV chart with benchmark overlays (CSI 300 and ChiNext)
-- Drawdown chart
-- Trade list table
-- Monthly returns heatmap
-- Per-stock performance bar chart
+- Two-tab layout: Portfolio Overview and Stock Analysis
+- Portfolio Overview: Performance metrics, QuantStats tearsheet, trade history
+- Stock Analysis: Per-stock backtesting.py Bokeh charts with interactive visualization
 """
 
 from __future__ import annotations
 
-import calendar
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
+from src.adapters.chan_theory_bt import run_single_stock_backtest
 from src.backtest.engine import BacktestEngine
-from src.data_layer.index_fetcher import IndexFetcher
 from src.data_layer.market_reader import MarketReader
+from src.reporting.tearsheet import generate_portfolio_tearsheet
 from src.strategy.base import list_strategies
 
 # ---------------------------------------------------------------------------
@@ -113,7 +109,6 @@ if run_backtest:
 
     # Initialize data readers
     reader = MarketReader()
-    index_fetcher = IndexFetcher()
 
     # Get stock universe
     with st.spinner("Loading stock universe..."):
@@ -174,327 +169,204 @@ if "result" in st.session_state and "last_run" in st.session_state:
     st.divider()
 
     # -----------------------------------------------------------------------
-    # Performance Summary Cards
+    # Two-Tab Layout
     # -----------------------------------------------------------------------
 
-    st.subheader("📊 Performance Summary")
+    tab1, tab2 = st.tabs(["📊 Portfolio Overview", "📈 Stock Analysis"])
 
-    metrics = result.metrics
+    # =======================================================================
+    # Tab 1: Portfolio Overview
+    # =======================================================================
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    with tab1:
+        # -------------------------------------------------------------------
+        # Performance Metrics Cards
+        # -------------------------------------------------------------------
 
-    with col1:
-        total_return_pct = metrics["profit_total"] * 100
-        st.metric(
-            "Total Return",
-            f"{total_return_pct:.2f}%",
-            delta=f"¥{metrics['profit_total_abs']:,.0f}",
-        )
+        st.subheader("📊 Performance Summary")
 
-    with col2:
-        st.metric("Sortino Ratio", f"{metrics['sortino']:.3f}")
+        metrics = result.metrics
 
-    with col3:
-        st.metric("Sharpe Ratio", f"{metrics['sharpe']:.3f}")
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-    with col4:
-        max_dd_pct = abs(metrics["max_drawdown"]) * 100
-        st.metric("Max Drawdown", f"-{max_dd_pct:.2f}%")
-
-    with col5:
-        win_rate_pct = metrics["winrate"] * 100
-        st.metric("Win Rate", f"{win_rate_pct:.1f}%")
-
-    with col6:
-        st.metric("Trade Count", f"{metrics['trade_count']}")
-
-    st.divider()
-
-    # -----------------------------------------------------------------------
-    # NAV Chart with Benchmark Overlays
-    # -----------------------------------------------------------------------
-
-    st.subheader("📈 Net Asset Value — Strategy vs Benchmarks")
-
-    # Convert NAV history to DataFrame
-    nav_df = pd.DataFrame(result.nav_history)
-
-    # Fetch benchmark data
-    reader = MarketReader()
-    index_fetcher = IndexFetcher()
-
-    # ChiNext (399006.SZ) from market.db
-    chinext_df = reader.get_index_klines(
-        "399006.SZ",
-        timeframe="DAY",
-        start_date=params["start_date"],
-        end_date=params["end_date"],
-    )
-
-    # CSI 300 (000300) from index_cache.db
-    csi300_df = index_fetcher.get_csi300(
-        start_date=params["start_date"],
-        end_date=params["end_date"],
-    )
-
-    # Normalize benchmarks to same starting NAV as strategy
-    if not chinext_df.empty:
-        chinext_df["normalized_nav"] = (
-            chinext_df["close"] / chinext_df["close"].iloc[0] * params["initial_capital"]
-        )
-
-    if not csi300_df.empty:
-        csi300_df["normalized_nav"] = (
-            csi300_df["close"] / csi300_df["close"].iloc[0] * params["initial_capital"]
-        )
-
-    # Create Plotly figure
-    fig = go.Figure()
-
-    # Add strategy NAV line
-    fig.add_trace(
-        go.Scatter(
-            x=nav_df["date"],
-            y=nav_df["nav"],
-            mode="lines",
-            name="Chan Theory",
-            line=dict(color="#1f77b4", width=2.5),
-            hovertemplate="<b>Chan Theory</b><br>Date: %{x}<br>NAV: ¥%{y:,.0f}<extra></extra>",
-        )
-    )
-
-    # Add CSI 300 benchmark
-    if not csi300_df.empty:
-        fig.add_trace(
-            go.Scatter(
-                x=csi300_df["date"],
-                y=csi300_df["normalized_nav"],
-                mode="lines",
-                name="CSI 300 (沪深300)",
-                line=dict(color="#ff7f0e", width=2, dash="dash"),
-                hovertemplate="<b>CSI 300</b><br>Date: %{x}<br>NAV: ¥%{y:,.0f}<extra></extra>",
-            )
-        )
-
-    # Add ChiNext benchmark
-    if not chinext_df.empty:
-        fig.add_trace(
-            go.Scatter(
-                x=chinext_df["date"],
-                y=chinext_df["normalized_nav"],
-                mode="lines",
-                name="ChiNext (创业板指)",
-                line=dict(color="#2ca02c", width=2, dash="dot"),
-                hovertemplate="<b>ChiNext</b><br>Date: %{x}<br>NAV: ¥%{y:,.0f}<extra></extra>",
-            )
-        )
-
-    fig.update_layout(
-        xaxis_title="Date",
-        yaxis_title="Net Asset Value (¥)",
-        hovermode="x unified",
-        height=500,
-        template="plotly_white",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-        ),
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # -----------------------------------------------------------------------
-    # Drawdown Chart
-    # -----------------------------------------------------------------------
-
-    st.subheader("📉 Drawdown Chart")
-
-    # Calculate drawdown series
-    nav_series = np.array(nav_df["nav"])
-    peak = nav_series[0]
-    drawdowns = []
-
-    for nav in nav_series:
-        if nav > peak:
-            peak = nav
-        dd = (nav - peak) / peak if peak > 0 else 0
-        drawdowns.append(dd * 100)  # Convert to percentage
-
-    drawdown_df = pd.DataFrame({"date": nav_df["date"], "drawdown": drawdowns})
-
-    fig_dd = go.Figure()
-
-    fig_dd.add_trace(
-        go.Scatter(
-            x=drawdown_df["date"],
-            y=drawdown_df["drawdown"],
-            mode="lines",
-            name="Drawdown",
-            line=dict(color="#d62728", width=2),
-            fill="tozeroy",
-            fillcolor="rgba(214, 39, 40, 0.3)",
-            hovertemplate="<b>Drawdown</b><br>Date: %{x}<br>DD: %{y:.2f}%<extra></extra>",
-        )
-    )
-
-    fig_dd.update_layout(
-        xaxis_title="Date",
-        yaxis_title="Drawdown (%)",
-        hovermode="x unified",
-        height=300,
-        template="plotly_white",
-    )
-
-    st.plotly_chart(fig_dd, use_container_width=True)
-
-    # -----------------------------------------------------------------------
-    # Trade List Table
-    # -----------------------------------------------------------------------
-
-    st.subheader("📋 Trade List")
-
-    if result.trades:
-        trades_data = []
-        for trade in result.trades:
-            # Calculate hold days
-            entry_dt = datetime.strptime(trade.entry_date, "%Y-%m-%d")
-            exit_dt = datetime.strptime(trade.exit_date, "%Y-%m-%d")
-            hold_days = (exit_dt - entry_dt).days
-
-            trades_data.append(
-                {
-                    "Stock": trade.symbol,
-                    "Entry Date": trade.entry_date,
-                    "Exit Date": trade.exit_date,
-                    "Entry Price": f"¥{trade.entry_price:.2f}",
-                    "Exit Price": f"¥{trade.exit_price:.2f}",
-                    "P&L": f"¥{trade.pnl:,.2f}",
-                    "P&L%": f"{trade.pnl_pct * 100:.2f}%",
-                    "Hold Days": hold_days,
-                }
+        with col1:
+            total_return_pct = metrics["profit_total"] * 100
+            st.metric(
+                "Total Return",
+                f"{total_return_pct:.2f}%",
+                delta=f"¥{metrics['profit_total_abs']:,.0f}",
             )
 
-        trades_df = pd.DataFrame(trades_data)
-        st.dataframe(trades_df, use_container_width=True, height=400)
-    else:
-        st.info("No trades executed during this backtest period.")
+        with col2:
+            # Calculate CAGR from total return and date range
+            start_dt = datetime.strptime(params["start_date"], "%Y-%m-%d")
+            end_dt = datetime.strptime(params["end_date"], "%Y-%m-%d")
+            years = (end_dt - start_dt).days / 365.25
+            if years > 0:
+                cagr = ((1 + metrics["profit_total"]) ** (1 / years) - 1) * 100
+            else:
+                cagr = 0.0
+            st.metric("CAGR", f"{cagr:.2f}%")
 
-    # -----------------------------------------------------------------------
-    # Monthly Returns Heatmap
-    # -----------------------------------------------------------------------
+        with col3:
+            st.metric("Sharpe Ratio", f"{metrics['sharpe']:.3f}")
 
-    st.subheader("🔥 Monthly Returns Heatmap")
+        with col4:
+            st.metric("Sortino Ratio", f"{metrics['sortino']:.3f}")
 
-    # Calculate monthly returns from daily NAV
-    nav_with_date = nav_df.copy()
-    nav_with_date["date"] = pd.to_datetime(nav_with_date["date"])
-    nav_with_date["year"] = nav_with_date["date"].dt.year
-    nav_with_date["month"] = nav_with_date["date"].dt.month
+        with col5:
+            max_dd_pct = abs(metrics["max_drawdown"]) * 100
+            st.metric("Max Drawdown", f"-{max_dd_pct:.2f}%")
 
-    # Group by year-month and get first/last NAV
-    monthly_grouped = (
-        nav_with_date.groupby(["year", "month"])
-        .agg({"nav": ["first", "last"]})
-        .reset_index()
-    )
-    monthly_grouped.columns = ["year", "month", "start_nav", "end_nav"]
-    monthly_grouped["return"] = (
-        (monthly_grouped["end_nav"] - monthly_grouped["start_nav"])
-        / monthly_grouped["start_nav"]
-        * 100
-    )
+        with col6:
+            win_rate_pct = metrics["winrate"] * 100
+            st.metric("Win Rate", f"{win_rate_pct:.1f}%")
 
-    if not monthly_grouped.empty:
-        # Pivot for heatmap
-        years = sorted(monthly_grouped["year"].unique())
-        months = list(range(1, 13))
+        st.divider()
 
-        heatmap_data = []
-        for month in months:
-            row = []
-            for year in years:
-                val = monthly_grouped[
-                    (monthly_grouped["year"] == year) & (monthly_grouped["month"] == month)
-                ]["return"]
-                row.append(val.iloc[0] if not val.empty else None)
-            heatmap_data.append(row)
+        # -------------------------------------------------------------------
+        # QuantStats Tearsheet
+        # -------------------------------------------------------------------
 
-        month_labels = [calendar.month_abbr[m] for m in months]
+        st.subheader("📈 Portfolio Tearsheet (QuantStats)")
 
-        fig_heatmap = go.Figure(
-            data=go.Heatmap(
-                z=heatmap_data,
-                x=years,
-                y=month_labels,
-                colorscale="RdYlGn",
-                zmid=0,
-                text=[[f"{v:.1f}%" if v is not None else "" for v in row] for row in heatmap_data],
-                texttemplate="%{text}",
-                textfont={"size": 10},
-                hovertemplate="Year: %{x}<br>Month: %{y}<br>Return: %{z:.2f}%<extra></extra>",
+        with st.spinner("Generating QuantStats tearsheet..."):
+            reader = MarketReader()
+            tearsheet_html = generate_portfolio_tearsheet(result, reader)
+
+        # Embed the tearsheet HTML
+        components.html(tearsheet_html, height=3000, scrolling=True)
+
+        st.divider()
+
+        # -------------------------------------------------------------------
+        # Trade History Table (Expandable)
+        # -------------------------------------------------------------------
+
+        with st.expander("📋 Trade History", expanded=False):
+            if result.trades:
+                trades_data = []
+                for trade in result.trades:
+                    # Calculate hold days
+                    entry_dt = datetime.strptime(trade.entry_date, "%Y-%m-%d")
+                    exit_dt = datetime.strptime(trade.exit_date, "%Y-%m-%d")
+                    hold_days = (exit_dt - entry_dt).days
+
+                    trades_data.append(
+                        {
+                            "Stock": trade.symbol,
+                            "Entry Date": trade.entry_date,
+                            "Exit Date": trade.exit_date,
+                            "Entry Price": f"¥{trade.entry_price:.2f}",
+                            "Exit Price": f"¥{trade.exit_price:.2f}",
+                            "P&L": f"¥{trade.pnl:,.2f}",
+                            "P&L%": f"{trade.pnl_pct * 100:.2f}%",
+                            "Hold Days": hold_days,
+                        }
+                    )
+
+                trades_df = pd.DataFrame(trades_data)
+                st.dataframe(trades_df, use_container_width=True, height=400)
+            else:
+                st.info("No trades executed during this backtest period.")
+
+    # =======================================================================
+    # Tab 2: Stock Analysis
+    # =======================================================================
+
+    with tab2:
+        st.subheader("📈 Individual Stock Analysis")
+
+        # Get list of stocks that had trades
+        if result.trades:
+            traded_stocks = sorted(list(set(trade.symbol for trade in result.trades)))
+
+            # Stock selector dropdown
+            selected_stock = st.selectbox(
+                "Select a stock to analyze:",
+                options=traded_stocks,
+                index=0,
+                help="Choose a stock that was traded during the backtest",
             )
-        )
 
-        fig_heatmap.update_layout(
-            xaxis_title="Year",
-            yaxis_title="Month",
-            height=400,
-            template="plotly_white",
-        )
+            if selected_stock:
+                st.markdown(f"**Analyzing:** {selected_stock}")
 
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-    else:
-        st.info("Insufficient data for monthly returns heatmap.")
+                with st.spinner(f"Running single-stock backtest for {selected_stock}..."):
+                    try:
+                        reader = MarketReader()
+                        stats_dict, bokeh_html = run_single_stock_backtest(
+                            symbol=selected_stock,
+                            start_date=params["start_date"],
+                            end_date=params["end_date"],
+                            initial_capital=params["initial_capital"],
+                            reader=reader,
+                        )
 
-    # -----------------------------------------------------------------------
-    # Per-Stock Performance Bar Chart
-    # -----------------------------------------------------------------------
+                        # Display Bokeh chart
+                        st.markdown("#### Interactive Backtest Chart")
+                        components.html(bokeh_html, height=800, scrolling=False)
 
-    st.subheader("🏆 Per-Stock Performance")
+                        st.divider()
 
-    if result.trades:
-        # Aggregate P&L by stock
-        stock_pnl = {}
-        for trade in result.trades:
-            if trade.symbol not in stock_pnl:
-                stock_pnl[trade.symbol] = 0.0
-            stock_pnl[trade.symbol] += trade.pnl
+                        # Display per-stock metrics
+                        st.markdown("#### Performance Metrics")
 
-        # Sort by P&L descending
-        sorted_stocks = sorted(stock_pnl.items(), key=lambda x: x[1], reverse=True)
+                        col1, col2, col3, col4 = st.columns(4)
 
-        # Limit to top 30 for readability
-        display_stocks = sorted_stocks[:30]
+                        with col1:
+                            return_pct = stats_dict.get("Return [%]", 0.0)
+                            st.metric("Return", f"{return_pct:.2f}%")
 
-        stock_symbols = [s[0] for s in display_stocks]
-        stock_pnls = [s[1] for s in display_stocks]
+                        with col2:
+                            num_trades = stats_dict.get("# Trades", 0)
+                            st.metric("# Trades", f"{num_trades}")
 
-        # Color code: green for profit, red for loss
-        colors = ["#2ca02c" if pnl > 0 else "#d62728" for pnl in stock_pnls]
+                        with col3:
+                            sharpe = stats_dict.get("Sharpe Ratio", 0.0)
+                            st.metric("Sharpe Ratio", f"{sharpe:.3f}")
 
-        fig_stock = go.Figure(
-            data=go.Bar(
-                x=stock_symbols,
-                y=stock_pnls,
-                marker_color=colors,
-                hovertemplate="<b>%{x}</b><br>P&L: ¥%{y:,.2f}<extra></extra>",
-            )
-        )
+                        with col4:
+                            max_dd = stats_dict.get("Max. Drawdown [%]", 0.0)
+                            st.metric("Max Drawdown", f"{max_dd:.2f}%")
 
-        fig_stock.update_layout(
-            xaxis_title="Stock Symbol",
-            yaxis_title="Total P&L (¥)",
-            height=400,
-            template="plotly_white",
-            showlegend=False,
-        )
+                        st.divider()
 
-        st.plotly_chart(fig_stock, use_container_width=True)
-    else:
-        st.info("No trades executed during this backtest period.")
+                        # Display stock-specific trade table
+                        st.markdown("#### Trade History for this Stock")
+
+                        stock_trades = [
+                            trade for trade in result.trades if trade.symbol == selected_stock
+                        ]
+
+                        if stock_trades:
+                            trades_data = []
+                            for trade in stock_trades:
+                                entry_dt = datetime.strptime(trade.entry_date, "%Y-%m-%d")
+                                exit_dt = datetime.strptime(trade.exit_date, "%Y-%m-%d")
+                                hold_days = (exit_dt - entry_dt).days
+
+                                trades_data.append(
+                                    {
+                                        "Entry Date": trade.entry_date,
+                                        "Exit Date": trade.exit_date,
+                                        "Entry Price": f"¥{trade.entry_price:.2f}",
+                                        "Exit Price": f"¥{trade.exit_price:.2f}",
+                                        "P&L": f"¥{trade.pnl:,.2f}",
+                                        "P&L%": f"{trade.pnl_pct * 100:.2f}%",
+                                        "Hold Days": hold_days,
+                                    }
+                                )
+
+                            trades_df = pd.DataFrame(trades_data)
+                            st.dataframe(trades_df, use_container_width=True)
+                        else:
+                            st.info(f"No trades found for {selected_stock}")
+
+                    except Exception as e:
+                        st.error(f"Error running backtest for {selected_stock}: {str(e)}")
+        else:
+            st.info("No trades executed during this backtest period. Run a backtest first.")
 
 else:
     # Welcome message when no backtest has been run yet
