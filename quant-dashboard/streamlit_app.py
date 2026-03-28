@@ -47,7 +47,7 @@ if "lang" not in st.session_state:
 
 # Language selector at the top of sidebar
 lang = st.sidebar.selectbox(
-    t("language", st.session_state["lang"]),
+    t("Language", st.session_state["lang"]),
     options=["English", "中文"],
     index=0 if st.session_state["lang"] == "en" else 1,
     key="lang_selector",
@@ -61,33 +61,33 @@ else:
 
 st.sidebar.divider()
 
-st.sidebar.title(t("sidebar_title", st.session_state["lang"]))
+st.sidebar.title(t("⚙️ Backtest Configuration", st.session_state["lang"]))
 
 # Strategy selector
 available_strategies = list_strategies()
 strategy_name = st.sidebar.selectbox(
-    t("strategy", st.session_state["lang"]),
+    t("Strategy", st.session_state["lang"]),
     options=available_strategies,
     index=0 if "chan_theory" in available_strategies else 0,
-    help=t("strategy_help", st.session_state["lang"]),
+    help=t("Select the trading strategy to backtest", st.session_state["lang"]),
 )
 
 # Date range picker
-st.sidebar.subheader(t("date_range", st.session_state["lang"]))
+st.sidebar.subheader(t("Date Range", st.session_state["lang"]))
 
 # Default to last 3 months
 default_end = datetime.now().date()
 default_start = default_end - timedelta(days=90)
 
 start_date = st.sidebar.date_input(
-    t("start_date", st.session_state["lang"]),
+    t("Start Date", st.session_state["lang"]),
     value=default_start,
     min_value=datetime(2021, 1, 1).date(),
     max_value=default_end,
 )
 
 end_date = st.sidebar.date_input(
-    t("end_date", st.session_state["lang"]),
+    t("End Date", st.session_state["lang"]),
     value=default_end,
     min_value=start_date,
     max_value=default_end,
@@ -95,31 +95,31 @@ end_date = st.sidebar.date_input(
 
 # Initial capital
 initial_capital = st.sidebar.number_input(
-    t("initial_capital", st.session_state["lang"]),
+    t("Initial Capital (¥)", st.session_state["lang"]),
     min_value=10000.0,
     max_value=100000000.0,
     value=1000000.0,
     step=100000.0,
     format="%.0f",
-    help=t("initial_capital_help", st.session_state["lang"]),
+    help=t("Initial capital in RMB", st.session_state["lang"]),
 )
 
 # Run backtest button
 run_backtest = st.sidebar.button(
-    t("run_backtest", st.session_state["lang"]), 
+    t("🚀 Run Backtest", st.session_state["lang"]), 
     type="primary", 
     use_container_width=True
 )
 
 st.sidebar.divider()
-st.sidebar.caption(t("sidebar_caption", st.session_state["lang"]))
+st.sidebar.caption(t("📊 A-Share Quant Dashboard — Chan Theory Showcase", st.session_state["lang"]))
 
 # ---------------------------------------------------------------------------
 # Main area
 # ---------------------------------------------------------------------------
 
-st.title(t("dashboard_title", st.session_state["lang"]))
-st.markdown(t("strategy_subtitle", st.session_state["lang"]))
+st.title(t("📈 A-Share Quant Dashboard", st.session_state["lang"]))
+st.markdown(t("**Strategy:** Chan Theory — Mechanical fractal detection based on MACD divergence", st.session_state["lang"]))
 
 # ---------------------------------------------------------------------------
 # Run backtest when button is clicked
@@ -138,12 +138,12 @@ if run_backtest:
     reader = MarketReader()
 
     # Get stock universe
-    with st.spinner(t("loading_stocks", st.session_state["lang"])):
+    with st.spinner(t("Loading stock list...", st.session_state["lang"])):
         symbols = reader.get_available_pairs()
-        st.info(t("stocks_loaded", st.session_state["lang"]).format(count=len(symbols)))
+        st.info(t("Loaded {count} stocks from market.db", st.session_state["lang"]).format(count=len(symbols)))
 
     # Initialize backtest engine
-    with st.spinner(t("initializing_engine", st.session_state["lang"])):
+    with st.spinner(t("Initializing backtest engine...", st.session_state["lang"])):
         engine = BacktestEngine(
             strategy=strategy_name,
             symbols=symbols,
@@ -154,7 +154,7 @@ if run_backtest:
         )
 
     # Run backtest with progress bar
-    progress_bar = st.progress(0.0, text=t("running_backtest_progress", st.session_state["lang"]).format(percent=0))
+    progress_bar = st.progress(0.0, text=t("Running backtest... {percent}%", st.session_state["lang"]).format(percent=0))
 
     # We'll poll the engine's progress during execution
     import threading
@@ -173,12 +173,12 @@ if run_backtest:
         percent = int(engine.progress * 100)
         progress_bar.progress(
             engine.progress, 
-            text=t("running_backtest_progress", st.session_state["lang"]).format(percent=percent)
+            text=t("Running backtest... {percent}%", st.session_state["lang"]).format(percent=percent)
         )
         time.sleep(0.1)
 
     thread.join()
-    progress_bar.progress(1.0, text=t("backtest_complete_progress", st.session_state["lang"]))
+    progress_bar.progress(1.0, text=t("Backtest complete!", st.session_state["lang"]))
     time.sleep(0.5)
     progress_bar.empty()
 
@@ -186,7 +186,7 @@ if run_backtest:
     st.session_state["result"] = result_container["result"]
 
     st.success(
-        t("backtest_complete_message", st.session_state["lang"]).format(
+        t("✅ Backtest complete! Executed {count} trades.", st.session_state["lang"]).format(
             count=result_container['result'].metrics['trade_count']
         )
     )
@@ -206,8 +206,8 @@ if "result" in st.session_state and "last_run" in st.session_state:
     # -----------------------------------------------------------------------
 
     tab1, tab2 = st.tabs([
-        t("tab_portfolio_overview", st.session_state["lang"]), 
-        t("tab_stock_analysis", st.session_state["lang"])
+        t("📊 Portfolio Overview", st.session_state["lang"]), 
+        t("📈 Stock Analysis", st.session_state["lang"])
     ])
 
     # =======================================================================
@@ -219,7 +219,7 @@ if "result" in st.session_state and "last_run" in st.session_state:
         # Performance Metrics Cards
         # -------------------------------------------------------------------
 
-        st.subheader(t("performance_summary", st.session_state["lang"]))
+        st.subheader(t("📊 Performance Summary", st.session_state["lang"]))
 
         metrics = result.metrics
 
@@ -228,7 +228,7 @@ if "result" in st.session_state and "last_run" in st.session_state:
         with col1:
             total_return_pct = metrics["profit_total"] * 100
             st.metric(
-                t("total_return", st.session_state["lang"]),
+                t("Total Return", st.session_state["lang"]),
                 f"{total_return_pct:.2f}%",
                 delta=f"¥{metrics['profit_total_abs']:,.0f}",
             )
@@ -242,21 +242,21 @@ if "result" in st.session_state and "last_run" in st.session_state:
                 cagr = ((1 + metrics["profit_total"]) ** (1 / years) - 1) * 100
             else:
                 cagr = 0.0
-            st.metric(t("cagr", st.session_state["lang"]), f"{cagr:.2f}%")
+            st.metric(t("CAGR", st.session_state["lang"]), f"{cagr:.2f}%")
 
         with col3:
-            st.metric(t("sharpe_ratio", st.session_state["lang"]), f"{metrics['sharpe']:.3f}")
+            st.metric(t("Sharpe Ratio", st.session_state["lang"]), f"{metrics['sharpe']:.3f}")
 
         with col4:
-            st.metric(t("sortino_ratio", st.session_state["lang"]), f"{metrics['sortino']:.3f}")
+            st.metric(t("Sortino Ratio", st.session_state["lang"]), f"{metrics['sortino']:.3f}")
 
         with col5:
             max_dd_pct = abs(metrics["max_drawdown"]) * 100
-            st.metric(t("max_drawdown", st.session_state["lang"]), f"-{max_dd_pct:.2f}%")
+            st.metric(t("Max Drawdown", st.session_state["lang"]), f"-{max_dd_pct:.2f}%")
 
         with col6:
             win_rate_pct = metrics["winrate"] * 100
-            st.metric(t("win_rate", st.session_state["lang"]), f"{win_rate_pct:.1f}%")
+            st.metric(t("Win Rate", st.session_state["lang"]), f"{win_rate_pct:.1f}%")
 
         st.divider()
 
@@ -264,9 +264,9 @@ if "result" in st.session_state and "last_run" in st.session_state:
         # QuantStats Tearsheet
         # -------------------------------------------------------------------
 
-        st.subheader(t("portfolio_tearsheet", st.session_state["lang"]))
+        st.subheader(t("📈 Portfolio Tearsheet (QuantStats)", st.session_state["lang"]))
 
-        with st.spinner(t("generating_tearsheet", st.session_state["lang"])):
+        with st.spinner(t("Generating QuantStats tearsheet...", st.session_state["lang"])):
             reader = MarketReader()
             tearsheet_html = generate_portfolio_tearsheet(result, reader, lang=st.session_state["lang"])
 
@@ -279,7 +279,7 @@ if "result" in st.session_state and "last_run" in st.session_state:
         # Trade History Table (Expandable)
         # -------------------------------------------------------------------
 
-        with st.expander(t("trade_history", st.session_state["lang"]), expanded=False):
+        with st.expander(t("📋 Trade History", st.session_state["lang"]), expanded=False):
             if result.trades:
                 trades_data = []
                 for trade in result.trades:
@@ -290,28 +290,28 @@ if "result" in st.session_state and "last_run" in st.session_state:
 
                     trades_data.append(
                         {
-                            t("stock", st.session_state["lang"]): trade.symbol,
-                            t("entry_date", st.session_state["lang"]): trade.entry_date,
-                            t("exit_date", st.session_state["lang"]): trade.exit_date,
-                            t("entry_price", st.session_state["lang"]): f"¥{trade.entry_price:.2f}",
-                            t("exit_price", st.session_state["lang"]): f"¥{trade.exit_price:.2f}",
-                            t("pnl", st.session_state["lang"]): f"¥{trade.pnl:,.2f}",
-                            t("pnl_pct", st.session_state["lang"]): f"{trade.pnl_pct * 100:.2f}%",
-                            t("hold_days", st.session_state["lang"]): hold_days,
+                            t("Stock", st.session_state["lang"]): trade.symbol,
+                            t("Entry Date", st.session_state["lang"]): trade.entry_date,
+                            t("Exit Date", st.session_state["lang"]): trade.exit_date,
+                            t("Entry Price", st.session_state["lang"]): f"¥{trade.entry_price:.2f}",
+                            t("Exit Price", st.session_state["lang"]): f"¥{trade.exit_price:.2f}",
+                            t("P&L", st.session_state["lang"]): f"¥{trade.pnl:,.2f}",
+                            t("P&L %", st.session_state["lang"]): f"{trade.pnl_pct * 100:.2f}%",
+                            t("Hold Days", st.session_state["lang"]): hold_days,
                         }
                     )
 
                 trades_df = pd.DataFrame(trades_data)
                 st.dataframe(trades_df, use_container_width=True, height=400)
             else:
-                st.info(t("no_trades", st.session_state["lang"]))
+                st.info(t("No trades executed during backtest period.", st.session_state["lang"]))
 
     # =======================================================================
     # Tab 2: Stock Analysis
     # =======================================================================
 
     with tab2:
-        st.subheader(t("stock_analysis_title", st.session_state["lang"]))
+        st.subheader(t("📈 Stock Analysis", st.session_state["lang"]))
 
         # Get list of stocks that had trades
         if result.trades:
@@ -334,20 +334,20 @@ if "result" in st.session_state and "last_run" in st.session_state:
 
             # Stock selector dropdown
             selected_display = st.selectbox(
-                t("select_stock", st.session_state["lang"]),
+                t("Select a stock to analyze:", st.session_state["lang"]),
                 options=stock_options,
                 index=0,
-                help=t("select_stock_help", st.session_state["lang"]),
+                help=t("Select a stock that was traded during the backtest", st.session_state["lang"]),
             )
 
             # Get actual symbol from display text
             selected_stock = stock_display_map[selected_display]
 
             if selected_stock:
-                st.markdown(t("analyzing", st.session_state["lang"]) + selected_display)
+                st.markdown(t("**Analyzing:** ", st.session_state["lang"]) + selected_display)
 
                 with st.spinner(
-                    t("running_single_backtest", st.session_state["lang"]).format(stock=selected_display)
+                    t("Running single-stock backtest for {stock}...", st.session_state["lang"]).format(stock=selected_display)
                 ):
                     try:
                         stats_dict, bokeh_html = run_single_stock_backtest(
@@ -359,36 +359,36 @@ if "result" in st.session_state and "last_run" in st.session_state:
                         )
 
                         # Display Bokeh chart
-                        st.markdown(t("interactive_chart", st.session_state["lang"]))
+                        st.markdown(t("#### Interactive Backtest Chart", st.session_state["lang"]))
                         components.html(bokeh_html, height=800, scrolling=False)
 
                         st.divider()
 
                         # Display per-stock metrics
-                        st.markdown(t("performance_metrics", st.session_state["lang"]))
+                        st.markdown(t("#### Performance Metrics", st.session_state["lang"]))
 
                         col1, col2, col3, col4 = st.columns(4)
 
                         with col1:
                             return_pct = stats_dict.get("Return [%]", 0.0)
-                            st.metric(t("return", st.session_state["lang"]), f"{return_pct:.2f}%")
+                            st.metric(t("Return", st.session_state["lang"]), f"{return_pct:.2f}%")
 
                         with col2:
                             num_trades = stats_dict.get("# Trades", 0)
-                            st.metric(t("num_trades", st.session_state["lang"]), f"{num_trades}")
+                            st.metric(t("# Trades", st.session_state["lang"]), f"{num_trades}")
 
                         with col3:
                             sharpe = stats_dict.get("Sharpe Ratio", 0.0)
-                            st.metric(t("sharpe_ratio", st.session_state["lang"]), f"{sharpe:.3f}")
+                            st.metric(t("Sharpe Ratio", st.session_state["lang"]), f"{sharpe:.3f}")
 
                         with col4:
                             max_dd = stats_dict.get("Max. Drawdown [%]", 0.0)
-                            st.metric(t("max_drawdown", st.session_state["lang"]), f"{max_dd:.2f}%")
+                            st.metric(t("Max Drawdown", st.session_state["lang"]), f"{max_dd:.2f}%")
 
                         st.divider()
 
                         # Display stock-specific trade table
-                        st.markdown(t("trade_history_stock", st.session_state["lang"]))
+                        st.markdown(t("#### Trade History for This Stock", st.session_state["lang"]))
 
                         stock_trades = [
                             trade for trade in result.trades if trade.symbol == selected_stock
@@ -403,13 +403,13 @@ if "result" in st.session_state and "last_run" in st.session_state:
 
                                 trades_data.append(
                                     {
-                                        t("entry_date", st.session_state["lang"]): trade.entry_date,
-                                        t("exit_date", st.session_state["lang"]): trade.exit_date,
-                                        t("entry_price", st.session_state["lang"]): f"¥{trade.entry_price:.2f}",
-                                        t("exit_price", st.session_state["lang"]): f"¥{trade.exit_price:.2f}",
-                                        t("pnl", st.session_state["lang"]): f"¥{trade.pnl:,.2f}",
-                                        t("pnl_pct", st.session_state["lang"]): f"{trade.pnl_pct * 100:.2f}%",
-                                        t("hold_days", st.session_state["lang"]): hold_days,
+                                        t("Entry Date", st.session_state["lang"]): trade.entry_date,
+                                        t("Exit Date", st.session_state["lang"]): trade.exit_date,
+                                        t("Entry Price", st.session_state["lang"]): f"¥{trade.entry_price:.2f}",
+                                        t("Exit Price", st.session_state["lang"]): f"¥{trade.exit_price:.2f}",
+                                        t("P&L", st.session_state["lang"]): f"¥{trade.pnl:,.2f}",
+                                        t("P&L %", st.session_state["lang"]): f"{trade.pnl_pct * 100:.2f}%",
+                                        t("Hold Days", st.session_state["lang"]): hold_days,
                                     }
                                 )
 
@@ -417,20 +417,38 @@ if "result" in st.session_state and "last_run" in st.session_state:
                             st.dataframe(trades_df, use_container_width=True)
                         else:
                             st.info(
-                                t("no_trades_for_stock", st.session_state["lang"]).format(stock=selected_stock)
+                                t("No trades found for {stock}", st.session_state["lang"]).format(stock=selected_stock)
                             )
 
                     except Exception as e:
                         st.error(
-                            t("backtest_error", st.session_state["lang"]).format(
+                            t("Error running backtest for {stock}: {error}", st.session_state["lang"]).format(
                                 stock=selected_stock, error=str(e)
                             )
                         )
         else:
-            st.info(t("no_trades_run_first", st.session_state["lang"]))
+            st.info(t("No trades executed. Please run backtest first.", st.session_state["lang"]))
 
 else:
     # Welcome message when no backtest has been run yet
-    st.info(t("welcome_configure", st.session_state["lang"]))
-    st.markdown(t("welcome_title", st.session_state["lang"]))
-    st.markdown(t("welcome_description", st.session_state["lang"]))
+    st.info(t("👈 Configure backtest parameters in the sidebar, then click **Run Backtest** to begin.", st.session_state["lang"]))
+    st.markdown(t("## Welcome to A-Share Quant Dashboard!", st.session_state["lang"]))
+    st.markdown(t("""
+This dashboard showcases the **Chan Theory** quantitative trading strategy applied to A-Share markets.
+
+### Features:
+- 📊 **Performance Metrics**: Total return, CAGR, Sharpe ratio, max drawdown, win rate, trade count
+- 📈 **Interactive NAV Chart**: Strategy performance vs CSI 300 and ChiNext benchmarks
+- 📉 **Drawdown Chart**: Visualize underwater periods
+- 📋 **Trade List**: Trade-by-trade breakdown
+- 🔥 **Monthly Returns Heatmap**: See seasonal patterns
+- 🏆 **Per-Stock Performance**: Identify best performers
+
+### Quick Start:
+1. Select strategy (currently **Chan Theory**)
+2. Choose backtest date range
+3. Set initial capital
+4. Click **Run Backtest**
+
+The backtest will analyze signals across the stock universe and execute simulated trades.
+""", st.session_state["lang"]))

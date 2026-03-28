@@ -11,96 +11,94 @@ class TestTranslationFunction:
     """Test the t() translation function."""
 
     def test_english_returns_key(self) -> None:
-        """When lang='en', t() should return the key itself."""
-        assert t("total_return", "en") == "total_return"
-        assert t("dashboard_title", "en") == "dashboard_title"
-        assert t("run_backtest", "en") == "run_backtest"
+        """When lang='en', t() should return the English text (key itself)."""
+        assert t("Total Return", "en") == "Total Return"
+        assert t("📈 A-Share Quant Dashboard", "en") == "📈 A-Share Quant Dashboard"
+        assert t("🚀 Run Backtest", "en") == "🚀 Run Backtest"
 
     def test_chinese_returns_translation(self) -> None:
         """When lang='zh', t() should return the Chinese translation."""
-        assert t("total_return", "zh") == "总收益率"
-        assert t("dashboard_title", "zh") == "📈 A股量化交易仪表盘"
-        assert t("run_backtest", "zh") == "🚀 运行回测"
+        assert t("Total Return", "zh") == "总收益率"
+        assert t("📈 A-Share Quant Dashboard", "zh") == "📈 A股量化交易仪表盘"
+        assert t("🚀 Run Backtest", "zh") == "🚀 运行回测"
 
     def test_unknown_key_returns_key(self) -> None:
         """When a key is not in TRANSLATIONS, return the key itself."""
-        assert t("unknown_key", "zh") == "unknown_key"
-        assert t("another_unknown", "zh") == "another_unknown"
+        assert t("Unknown Key", "zh") == "Unknown Key"
+        assert t("Another Unknown", "zh") == "Another Unknown"
 
     def test_default_language_is_english(self) -> None:
         """When lang is not specified, default to English (return key)."""
-        assert t("total_return") == "total_return"
+        assert t("Total Return") == "Total Return"
 
     def test_all_expected_keys_present(self) -> None:
-        """Verify that all expected translation keys are present in TRANSLATIONS."""
+        """Verify that all expected translation keys (English text) are present in TRANSLATIONS."""
         expected_keys = [
             # Page title and headers
-            "page_title",
-            "dashboard_title",
-            "strategy_subtitle",
+            "A-Share Quant Dashboard — Chan Theory",
+            "📈 A-Share Quant Dashboard",
+            "**Strategy:** Chan Theory — Mechanical fractal detection based on MACD divergence",
             # Sidebar
-            "sidebar_title",
-            "sidebar_caption",
-            "language",
+            "⚙️ Backtest Configuration",
+            "📊 A-Share Quant Dashboard — Chan Theory Showcase",
+            "Language",
             # Controls
-            "strategy",
-            "strategy_help",
-            "date_range",
-            "start_date",
-            "end_date",
-            "initial_capital",
-            "initial_capital_help",
-            "run_backtest",
+            "Strategy",
+            "Select the trading strategy to backtest",
+            "Date Range",
+            "Start Date",
+            "End Date",
+            "Initial Capital (¥)",
+            "Initial capital in RMB",
+            "🚀 Run Backtest",
             # Tab names
-            "tab_portfolio_overview",
-            "tab_stock_analysis",
+            "📊 Portfolio Overview",
+            "📈 Stock Analysis",
             # Performance metrics
-            "performance_summary",
-            "total_return",
-            "cagr",
-            "sharpe_ratio",
-            "sortino_ratio",
-            "max_drawdown",
-            "win_rate",
+            "📊 Performance Summary",
+            "Total Return",
+            "CAGR",
+            "Sharpe Ratio",
+            "Sortino Ratio",
+            "Max Drawdown",
+            "Win Rate",
             # Portfolio Overview
-            "portfolio_tearsheet",
-            "trade_history",
+            "📈 Portfolio Tearsheet (QuantStats)",
+            "📋 Trade History",
             # Trade table columns
-            "stock",
-            "entry_date",
-            "exit_date",
-            "entry_price",
-            "exit_price",
-            "pnl",
-            "pnl_pct",
-            "hold_days",
+            "Stock",
+            "Entry Date",
+            "Exit Date",
+            "Entry Price",
+            "Exit Price",
+            "P&L",
+            "P&L %",
+            "Hold Days",
             # Stock Analysis
-            "stock_analysis_title",
-            "select_stock",
-            "select_stock_help",
-            "analyzing",
-            "interactive_chart",
-            "performance_metrics",
-            "return",
-            "num_trades",
-            "trade_history_stock",
+            "Select a stock to analyze:",
+            "Select a stock that was traded during the backtest",
+            "**Analyzing:** ",
+            "#### Interactive Backtest Chart",
+            "#### Performance Metrics",
+            "Return",
+            "# Trades",
+            "#### Trade History for This Stock",
             # Messages
-            "loading_stocks",
-            "stocks_loaded",
-            "initializing_engine",
-            "running_backtest_progress",
-            "backtest_complete_progress",
-            "backtest_complete_message",
-            "no_trades",
-            "no_trades_run_first",
-            "generating_tearsheet",
-            "running_single_backtest",
-            "backtest_error",
-            "no_trades_for_stock",
+            "Loading stock list...",
+            "Loaded {count} stocks from market.db",
+            "Initializing backtest engine...",
+            "Running backtest... {percent}%",
+            "Backtest complete!",
+            "✅ Backtest complete! Executed {count} trades.",
+            "No trades executed during backtest period.",
+            "No trades executed. Please run backtest first.",
+            "Generating QuantStats tearsheet...",
+            "Running single-stock backtest for {stock}...",
+            "Error running backtest for {stock}: {error}",
+            "No trades found for {stock}",
             # Welcome
-            "welcome_configure",
-            "welcome_title",
-            "welcome_description",
+            "👈 Configure backtest parameters in the sidebar, then click **Run Backtest** to begin.",
+            "## Welcome to A-Share Quant Dashboard!",
         ]
 
         for key in expected_keys:
@@ -119,46 +117,46 @@ class TestTranslationFunction:
     def test_format_placeholders_preserved(self) -> None:
         """Translations with format placeholders should work correctly."""
         # Test that format placeholders are preserved
-        assert "{count}" in t("stocks_loaded", "zh")
-        assert "{percent}" in t("running_backtest_progress", "zh")
-        assert "{stock}" in t("running_single_backtest", "zh")
+        assert "{count}" in t("Loaded {count} stocks from market.db", "zh")
+        assert "{percent}" in t("Running backtest... {percent}%", "zh")
+        assert "{stock}" in t("Running single-stock backtest for {stock}...", "zh")
         
         # Test that we can actually format them
-        result = t("stocks_loaded", "zh").format(count=100)
+        result = t("Loaded {count} stocks from market.db", "zh").format(count=100)
         assert "100" in result
         
-        result = t("running_backtest_progress", "zh").format(percent=50)
+        result = t("Running backtest... {percent}%", "zh").format(percent=50)
         assert "50" in result
 
     def test_metric_labels_translation(self) -> None:
         """Key metric labels should have correct Chinese translations."""
-        assert t("total_return", "zh") == "总收益率"
-        assert t("cagr", "zh") == "年化收益率"
-        assert t("sharpe_ratio", "zh") == "夏普比率"
-        assert t("sortino_ratio", "zh") == "索提诺比率"
-        assert t("max_drawdown", "zh") == "最大回撤"
-        assert t("win_rate", "zh") == "胜率"
+        assert t("Total Return", "zh") == "总收益率"
+        assert t("CAGR", "zh") == "年化收益率"
+        assert t("Sharpe Ratio", "zh") == "夏普比率"
+        assert t("Sortino Ratio", "zh") == "索提诺比率"
+        assert t("Max Drawdown", "zh") == "最大回撤"
+        assert t("Win Rate", "zh") == "胜率"
 
     def test_sidebar_labels_translation(self) -> None:
         """Sidebar control labels should have correct Chinese translations."""
-        assert t("strategy", "zh") == "策略"
-        assert t("start_date", "zh") == "开始日期"
-        assert t("end_date", "zh") == "结束日期"
-        assert t("initial_capital", "zh") == "初始资金 (¥)"
-        assert t("run_backtest", "zh") == "🚀 运行回测"
+        assert t("Strategy", "zh") == "策略"
+        assert t("Start Date", "zh") == "开始日期"
+        assert t("End Date", "zh") == "结束日期"
+        assert t("Initial Capital (¥)", "zh") == "初始资金 (¥)"
+        assert t("🚀 Run Backtest", "zh") == "🚀 运行回测"
 
     def test_tab_names_translation(self) -> None:
         """Tab names should have correct Chinese translations."""
-        assert t("tab_portfolio_overview", "zh") == "📊 投资组合概览"
-        assert t("tab_stock_analysis", "zh") == "📈 个股分析"
+        assert t("📊 Portfolio Overview", "zh") == "📊 投资组合概览"
+        assert t("📈 Stock Analysis", "zh") == "📈 个股分析"
 
     def test_trade_table_columns_translation(self) -> None:
         """Trade table columns should have correct Chinese translations."""
-        assert t("stock", "zh") == "股票"
-        assert t("entry_date", "zh") == "买入日期"
-        assert t("exit_date", "zh") == "卖出日期"
-        assert t("entry_price", "zh") == "买入价"
-        assert t("exit_price", "zh") == "卖出价"
-        assert t("pnl", "zh") == "盈亏"
-        assert t("pnl_pct", "zh") == "收益率%"
-        assert t("hold_days", "zh") == "持有天数"
+        assert t("Stock", "zh") == "股票"
+        assert t("Entry Date", "zh") == "买入日期"
+        assert t("Exit Date", "zh") == "卖出日期"
+        assert t("Entry Price", "zh") == "买入价"
+        assert t("Exit Price", "zh") == "卖出价"
+        assert t("P&L", "zh") == "盈亏"
+        assert t("P&L %", "zh") == "收益率%"
+        assert t("Hold Days", "zh") == "持有天数"
